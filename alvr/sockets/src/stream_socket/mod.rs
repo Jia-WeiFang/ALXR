@@ -291,6 +291,107 @@ impl StreamSocketBuilder {
             packet_queues: Arc::new(Mutex::new(HashMap::new())),
         })
     }
+
+    // [jw] begin
+    pub async fn listen_for_client(
+        port: u16,
+        stream_socket_config: SocketProtocol,
+    ) -> StrResult<Self> {
+        Ok(match stream_socket_config {
+            SocketProtocol::Udp => StreamSocketBuilder::Udp(udp::bind(port).await?),
+            SocketProtocol::Tcp => StreamSocketBuilder::Tcp(tcp::listen_for_client(port).await?),
+            SocketProtocol::ThrottledUdp { .. } => {
+                StreamSocketBuilder::ThrottledUdp(throttled_udp::listen_for_client(port).await?)
+            }
+        })
+    }
+
+    pub async fn accept_from_client(self, client_ip: IpAddr, port: u16, video_byterate: u32,) -> StrResult<StreamSocket> {
+        let (send_socket, receive_socket) = match self {
+            StreamSocketBuilder::Udp(socket) => {
+                let (send_socket, receive_socket) = udp::accept_from_client(socket, client_ip, port).await?;
+                (
+                    StreamSendSocket::Udp(send_socket),
+                    StreamReceiveSocket::Udp(receive_socket),
+                )
+            }
+            StreamSocketBuilder::Tcp(listener) => {
+                let (send_socket, receive_socket) =
+                    tcp::accept_from_client(listener, client_ip).await?;
+                (
+                    StreamSendSocket::Tcp(send_socket),
+                    StreamReceiveSocket::Tcp(receive_socket),
+                )
+            }
+            StreamSocketBuilder::ThrottledUdp(socket) => {
+                let (send_socket, receive_socket) =
+                    throttled_udp::accept_from_client(
+                        socket, 
+                        client_ip, 
+                        port, 
+                        video_byterate,
+                        1.5,
+                )
+                .await?;
+                (
+                    StreamSendSocket::ThrottledUdp(send_socket),
+                    StreamReceiveSocket::ThrottledUdp(receive_socket),
+                )
+            }
+        };
+
+        Ok(StreamSocket {
+            send_socket,
+            receive_socket: Arc::new(Mutex::new(Some(receive_socket))),
+            packet_queues: Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+
+    pub async fn connect_to_server(
+        server_ip: IpAddr,
+        port: u16,
+        protocol: SocketProtocol,
+        video_byterate: u32,
+    ) -> StrResult<StreamSocket> {
+        let (send_socket, receive_socket) = match protocol {
+            SocketProtocol::Udp => {
+                let sock = udp::bind(port).await?;
+                let (send_socket, receive_socket) = udp::connect_to_server(sock, server_ip, port).await?;
+                (
+                    StreamSendSocket::Udp(send_socket),
+                    StreamReceiveSocket::Udp(receive_socket),
+                )
+            }
+            SocketProtocol::Tcp => {
+                let (send_socket, receive_socket) = tcp::connect_to_server(server_ip, port).await?;
+                (
+                    StreamSendSocket::Tcp(send_socket),
+                    StreamReceiveSocket::Tcp(receive_socket),
+                )
+            }
+            SocketProtocol::ThrottledUdp { bitrate_multiplier } => {
+                let (send_socket, receive_socket) = throttled_udp::connect_to_server(
+                    server_ip,
+                    port,
+                    // video_byterate,
+                    // bitrate_multiplier,
+                )
+                .await?;
+                (
+                    StreamSendSocket::ThrottledUdp(send_socket),
+                    StreamReceiveSocket::ThrottledUdp(receive_socket),
+                )
+            }
+        };
+
+        Ok(StreamSocket {
+            send_socket,
+            receive_socket: Arc::new(Mutex::new(Some(receive_socket))),
+            packet_queues: Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+    // [jw] end
+
 }
 
 pub struct StreamSocket {

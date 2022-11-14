@@ -17,6 +17,12 @@ use tokio::{
 };
 use tokio_util::udp::UdpFramed;
 
+use std::io;
+use std::error::Error;
+use std::str::FromStr;
+use std::fs::File;
+use std::io::Write;
+
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct UdpStreamSendSocket {
@@ -55,6 +61,136 @@ pub async fn connect(
         },
     ))
 }
+
+// [jw] begin
+pub async fn accept_from_client(
+    socket: UdpSocket,
+    peer_ip: IpAddr,
+    port: u16,
+) -> StrResult<(UdpStreamSendSocket, UdpStreamReceiveSocket)> {
+    let mut buf = [0u8; 200];
+    let (mut number_of_bytes, mut src_addr) = socket.recv_from(&mut buf).await.unwrap();
+    info!("Source addr: {}", src_addr);
+    let peer_addr = src_addr;
+
+    let buf = &mut buf[..number_of_bytes];
+    buf.reverse();
+    if std::str::from_utf8(&buf).is_ok() {
+        info!("[CT]: ([UDP] receive from client) {}",std::str::from_utf8(&buf).unwrap()); 
+    }
+    else {
+        info!("[CT]: ([UDP] receive from client)  Receive {}", number_of_bytes);
+    }
+    trace_err!(socket.connect(src_addr).await)?;
+
+    let hello = String::from("TNEILC OT IH DNES");
+    let mut wbuf = [0u8; 200];
+    let wbuf = hello.as_bytes();
+    let mut buf = [0u8; 200];
+    loop{
+        match socket.send(&wbuf).await {
+            Ok(n) => {
+                info!("[CT] server send UDP success");
+            }
+            Err(e) => {
+                info!("[CT] server send UDP failed");
+            }
+        }    
+        match socket.recv(&mut buf).await {
+            Ok(n) => {
+                buf.reverse();
+                if std::str::from_utf8(&buf).is_ok() {
+                    info!("[CT]: ([UDP] receive from client) {}",std::str::from_utf8(&buf).unwrap()); 
+                    break;
+                }
+                else {
+                    info!("[CT]: ([UDP] receive from client) Receive {}", n);
+                }
+            }
+            Err(e) => {
+                info!("[CT]: Server receive UDP failed");
+            }
+                
+        }
+        
+    }
+    
+    let socket = UdpFramed::new(socket, Ldc::new());
+    let (send_socket, receive_socket) = socket.split();
+
+    Ok((
+        UdpStreamSendSocket {
+            peer_addr,
+            inner: Arc::new(Mutex::new(send_socket)),
+        },
+        UdpStreamReceiveSocket {
+            peer_addr,
+            inner: receive_socket,
+        },
+    ))
+}
+
+pub async fn connect_to_server(
+    socket: UdpSocket,
+    peer_ip: IpAddr,
+    port: u16,
+) -> StrResult<(UdpStreamSendSocket, UdpStreamReceiveSocket)> {
+    let peer_addr = (peer_ip, port).into();
+    trace_err!(socket.connect(peer_addr).await)?;
+    
+    let mut hello = String::from("REVRES OT IH DNES");
+    let mut wbuf = [0u8; 200];
+    let wbuf = hello.as_bytes();
+    let mut buf = [0u8; 200];
+    loop{
+        match socket.send(&wbuf).await {
+            Ok(n) => {
+                info!("[CT] client send UDP success");
+            }
+            Err(e) => {
+                info!("[CT] client send UDP failed");
+            }
+        }  
+        match socket.recv(&mut buf).await {
+            Ok(n) => {
+                if std::str::from_utf8(&buf).is_ok() {
+                    info!("[CT]: ([UDP] receive from server) {}",std::str::from_utf8(&buf).unwrap()); 
+                    break;
+                }
+                else {
+                    info!("[CT]: ([UDP] receive from server) Receive {}", n);
+                }
+            }
+            Err(e) => {
+                info!("[CT]: Client receive UDP failed");
+            }
+        }
+    }
+    
+    match socket.send(&buf).await {
+        Ok(n) => {
+            info!("[CT] client send UDP success");
+        }
+        Err(e) => {
+            info!("[CT] client send UDP failed");
+        }
+    }
+
+    let socket = UdpFramed::new(socket, Ldc::new());
+    let (send_socket, receive_socket) = socket.split();
+
+    Ok((
+        UdpStreamSendSocket {
+            peer_addr,
+            inner: Arc::new(Mutex::new(send_socket)),
+        },
+        UdpStreamReceiveSocket {
+            peer_addr,
+            inner: receive_socket,
+        },
+    ))
+}
+// [jw] end
 
 pub async fn receive_loop(
     mut socket: UdpStreamReceiveSocket,

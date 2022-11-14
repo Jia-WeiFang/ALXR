@@ -10,6 +10,9 @@ use std::{marker::PhantomData, net::IpAddr};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 
+use std::io;
+use std::error::Error;
+
 pub struct ControlSocketSender<T> {
     inner: SplitSink<Framed<TcpStream, Ldc>, Bytes>,
     _phantom: PhantomData<T>,
@@ -40,27 +43,117 @@ pub struct ProtoControlSocket {
     inner: Framed<TcpStream, Ldc>,
 }
 
+// pub enum PeerType {
+//     AnyClient(Vec<IpAddr>),
+//     Server,
+// }
+
+// [jw] begin
 pub enum PeerType {
-    AnyClient(Vec<IpAddr>),
+    AnyClient,
     Server,
 }
+// [jw] end
 
 impl ProtoControlSocket {
+    // pub async fn connect_to(peer: PeerType) -> StrResult<(Self, IpAddr)> {
+    //     let socket = match peer {
+    //         PeerType::AnyClient(ips) => {
+    //             let client_addresses = ips
+    //                 .iter()
+    //                 .map(|&ip| (ip, CONTROL_PORT).into())
+    //                 .collect::<Vec<_>>();
+    //             trace_err!(TcpStream::connect(client_addresses.as_slice()).await)?
+    //         }
+    //         PeerType::Server => {
+    //             let listener = trace_err!(TcpListener::bind((LOCAL_IP, CONTROL_PORT)).await)?;
+    //             let (socket, _) = trace_err!(listener.accept().await)?;
+    //             socket
+    //         }
+    //     };
+
+    //     trace_err!(socket.set_nodelay(true))?;
+    //     let peer_ip = trace_err!(socket.peer_addr())?.ip();
+    //     let socket = Framed::new(socket, Ldc::new());
+
+    //     Ok((Self { inner: socket }, peer_ip))
+    // }
+
+    // [jw] begin
     pub async fn connect_to(peer: PeerType) -> StrResult<(Self, IpAddr)> {
         let socket = match peer {
-            PeerType::AnyClient(ips) => {
-                let client_addresses = ips
-                    .iter()
-                    .map(|&ip| (ip, CONTROL_PORT).into())
-                    .collect::<Vec<_>>();
-                trace_err!(TcpStream::connect(client_addresses.as_slice()).await)?
-            }
-            PeerType::Server => {
+            PeerType::AnyClient => {
                 let listener = trace_err!(TcpListener::bind((LOCAL_IP, CONTROL_PORT)).await)?;
                 let (socket, _) = trace_err!(listener.accept().await)?;
+                let mut buf = [0u8; 1500];
+                let hello = String::from("LSMN YPPAH [tekcos lortnoc]");
+                let mut wbuf = [0u8; 1500];
+                let wbuf = hello.as_bytes();
+                loop{
+                    socket.readable().await;
+                    match socket.try_read(&mut buf) {
+                        Ok(0) => {},
+                        Ok(n) => {
+                            buf.reverse();
+                            if std::str::from_utf8(&buf).is_ok() {
+                                info!("[jw]: (control socket) {}",std::str::from_utf8(&buf).unwrap()); 
+                                
+                            }
+                            else {
+                                info!("[jw]:  Receive {}", n);
+                            }
+                        }
+                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
+                        Err(e) => {}
+                    }
+                    socket.writable().await;
+                    match socket.try_write(&wbuf) {
+                        Ok(n) => {
+                            break;
+                        }
+                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
+                        Err(e) => {}
+                    }
+                }
+                socket
+                
+            }
+            PeerType::Server => {
+                let socket = trace_err!(TcpStream::connect("140.114.79.75:9943").await)?;
+                let hello = String::from("LSMN YPPAH [tekcos lortnoc]");
+                let mut wbuf = [0u8; 1500];
+                let wbuf = hello.as_bytes();
+                let mut buf = [0u8; 1500];
+                loop{
+                    socket.writable().await;
+                    match socket.try_write(&wbuf) {
+                        Ok(n) => {
+                            
+                        }
+                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
+                        Err(e) => {}
+                    }
+                    socket.readable().await;
+                    match socket.try_read(&mut buf) {
+                        Ok(0) => {},
+                        Ok(n) => {
+                            buf.reverse();
+                            if std::str::from_utf8(&buf).is_ok() {
+                                break;
+                                
+                            }
+                            else {
+                                // info!("[jw]:  Receive {}", n);
+                            }
+                        }
+                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
+                        Err(e) => {}
+                    }
+                }
                 socket
             }
         };
+        // [jw] end
 
         trace_err!(socket.set_nodelay(true))?;
         let peer_ip = trace_err!(socket.peer_addr())?.ip();

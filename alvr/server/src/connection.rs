@@ -90,24 +90,33 @@ struct ConnectionInfo {
     control_receiver: ControlSocketReceiver<ClientControlPacket>,
 }
 
-async fn client_handshake(
-    trusted_discovered_client_id: Option<ClientId>,
-) -> StrResult<ConnectionInfo> {
-    let client_ips = if let Some(id) = trusted_discovered_client_id {
-        vec![id.ip]
-    } else {
-        SESSION_MANAGER.lock().get().client_connections.iter().fold(
-            Vec::new(),
-            |mut clients_info, (_, client)| {
-                clients_info.extend(client.manual_ips.clone());
-                clients_info
-            },
-        )
-    };
+// [jw] begin
+// async fn client_handshake(
+//     trusted_discovered_client_id: Option<ClientId>,
+// ) -> StrResult<ConnectionInfo> {
+async fn client_handshake() -> StrResult<ConnectionInfo> {
+    // let client_ips = if let Some(id) = trusted_discovered_client_id {
+    //     vec![id.ip]
+    // } else {
+    //     SESSION_MANAGER.lock().get().client_connections.iter().fold(
+    //         Vec::new(),
+    //         |mut clients_info, (_, client)| {
+    //             clients_info.extend(client.manual_ips.clone());
+    //             clients_info
+    //         },
+    //     )
+    // };
+
+    // let (mut proto_socket, client_ip) = loop {
+    //     if let Ok(pair) =
+    //         ProtoControlSocket::connect_to(PeerType::AnyClient(client_ips.clone())).await
+    //     {
+    //         break pair;
+    //     }
 
     let (mut proto_socket, client_ip) = loop {
         if let Ok(pair) =
-            ProtoControlSocket::connect_to(PeerType::AnyClient(client_ips.clone())).await
+            ProtoControlSocket::connect_to(PeerType::AnyClient).await
         {
             break pair;
         }
@@ -116,8 +125,13 @@ async fn client_handshake(
         time::sleep(CONTROL_CONNECT_RETRY_PAUSE).await;
     };
 
+    info!("[jw] Client ip: {}", client_ip);
+    // [jw] end
+
     let (headset_info, server_ip) =
         trace_err!(proto_socket.recv::<(HeadsetInfoPacket, IpAddr)>().await)?;
+
+    info!("[jw] Server ip: {}", server_ip);
 
     let settings = SESSION_MANAGER.lock().get().to_settings();
 
@@ -508,36 +522,44 @@ impl Drop for StreamCloseGuard {
 }
 
 async fn connection_pipeline() -> StrResult {
+    info!("[jw] Connection pipeline start.");
     let mut trusted_discovered_client_id = None;
     let connection_info = loop {
-        let client_discovery_config = SESSION_MANAGER
-            .lock()
-            .get()
-            .to_settings()
-            .connection
-            .client_discovery;
+        // let client_discovery_config = SESSION_MANAGER
+        //     .lock()
+        //     .get()
+        //     .to_settings()
+        //     .connection
+        //     .client_discovery;
 
+        // let try_connection_future: BoxFuture<Either<StrResult<ClientId>, _>> =
+        //     if let (Switch::Enabled(config), None) =
+        //         (client_discovery_config, &trusted_discovered_client_id)
+        //     {
+        //         Box::pin(async move {
+        //             let either = futures::future::select(
+        //                 Box::pin(client_discovery(config.auto_trust_clients)),
+        //                 Box::pin(client_handshake(None)),
+        //             )
+        //             .await;
+
+        //             match either {
+        //                 Either::Left((res, _)) => Either::Left(res),
+        //                 Either::Right((res, _)) => Either::Right(res),
+        //             }
+        //         })
+        //     } else {
+        //         Box::pin(async {
+        //             Either::Right(client_handshake(trusted_discovered_client_id.clone()).await)
+        //         })
+        //     };
+
+        // [jw] begin
         let try_connection_future: BoxFuture<Either<StrResult<ClientId>, _>> =
-            if let (Switch::Enabled(config), None) =
-                (client_discovery_config, &trusted_discovered_client_id)
-            {
-                Box::pin(async move {
-                    let either = futures::future::select(
-                        Box::pin(client_discovery(config.auto_trust_clients)),
-                        Box::pin(client_handshake(None)),
-                    )
-                    .await;
-
-                    match either {
-                        Either::Left((res, _)) => Either::Left(res),
-                        Either::Right((res, _)) => Either::Right(res),
-                    }
-                })
-            } else {
-                Box::pin(async {
-                    Either::Right(client_handshake(trusted_discovered_client_id.clone()).await)
-                })
-            };
+            Box::pin(async {
+                Either::Right(client_handshake().await)
+            });
+        // [jw] end
 
         tokio::select! {
             res = try_connection_future => {
@@ -573,11 +595,62 @@ async fn connection_pipeline() -> StrResult {
     } = connection_info;
     let control_sender = Arc::new(Mutex::new(control_sender));
 
+    // control_sender
+    //     .lock()
+    //     .await
+    //     .send(&ServerControlPacket::StartStream)
+    //     .await?;
+
+    // match control_receiver.recv().await {
+    //     Ok(ClientControlPacket::StreamReady) => {}
+    //     Ok(_) => {
+    //         return fmt_e!("Got unexpected packet waiting for stream ack");
+    //     }
+    //     Err(e) => {
+    //         return fmt_e!("Error while waiting for stream ack: {e}");
+    //     }
+    // }
+
+    // let settings = SESSION_MANAGER.lock().get().to_settings();
+
+    // let stream_socket = tokio::select! {
+    //     res = StreamSocketBuilder::connect_to_client(
+    //         client_ip,
+    //         settings.connection.stream_port,
+    //         settings.connection.stream_protocol,
+    //         mbits_to_bytes(settings.video.encode_bitrate_mbs)
+    //     ) => res?,
+    //     _ = time::sleep(Duration::from_secs(5)) => {
+    //         return fmt_e!("Timeout while setting up streams");
+    //     }
+    // };
+    // let stream_socket = Arc::new(stream_socket);
+
+    // [jw] begin
+    let settings = SESSION_MANAGER.lock().get().to_settings();
+
     control_sender
         .lock()
         .await
         .send(&ServerControlPacket::StartStream)
         .await?;
+
+    let stream_socket_builder = StreamSocketBuilder::listen_for_client(
+        settings.connection.stream_port,
+        settings.connection.stream_protocol,
+    )
+    .await?;
+
+    let stream_socket = tokio::select! {
+        res = stream_socket_builder.accept_from_client(
+            client_ip,
+            settings.connection.stream_port,
+            mbits_to_bytes(settings.video.encode_bitrate_mbs),
+        ) => res?,
+        _ = time::sleep(Duration::from_secs(5)) => {
+            return fmt_e!("Timeout while setting up streams");
+        }
+    };
 
     match control_receiver.recv().await {
         Ok(ClientControlPacket::StreamReady) => {}
@@ -589,20 +662,8 @@ async fn connection_pipeline() -> StrResult {
         }
     }
 
-    let settings = SESSION_MANAGER.lock().get().to_settings();
-
-    let stream_socket = tokio::select! {
-        res = StreamSocketBuilder::connect_to_client(
-            client_ip,
-            settings.connection.stream_port,
-            settings.connection.stream_protocol,
-            mbits_to_bytes(settings.video.encode_bitrate_mbs)
-        ) => res?,
-        _ = time::sleep(Duration::from_secs(5)) => {
-            return fmt_e!("Timeout while setting up streams");
-        }
-    };
     let stream_socket = Arc::new(stream_socket);
+    // [jw] end
 
     alvr_session::log_event(ServerEvent::ClientConnected);
 

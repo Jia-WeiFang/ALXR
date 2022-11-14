@@ -49,6 +49,43 @@ pub async fn connect_to_client(
     Ok((Arc::new(Mutex::new(send_socket)), receive_socket))
 }
 
+// [jw] begin
+pub async fn listen_for_client(port: u16) -> StrResult<TcpListener> {
+    trace_err!(TcpListener::bind((LOCAL_IP, port)).await)
+}
+
+pub async fn accept_from_client(
+    listener: TcpListener,
+    client_ip: IpAddr,
+) -> StrResult<(TcpStreamSendSocket, TcpStreamReceiveSocket)> {
+    let (socket, client_address) = trace_err!(listener.accept().await)?;
+
+    if client_address.ip() != client_ip {
+        return fmt_e!("Connected to wrong server: {client_address} != {client_ip}");
+    }
+
+    // [jw] extra
+    // trace_err!(socket.set_nodelay(true))?;
+    // [jw] extra
+    let socket = Framed::new(socket, Ldc::new());
+    let (send_socket, receive_socket) = socket.split();
+
+    Ok((Arc::new(Mutex::new(send_socket)), receive_socket))
+}
+
+pub async fn connect_to_server(
+    server_ip: IpAddr,
+    port: u16,
+) -> StrResult<(TcpStreamSendSocket, TcpStreamReceiveSocket)> {
+    let socket = trace_err!(TcpStream::connect((server_ip, port)).await)?;
+    trace_err!(socket.set_nodelay(true))?;
+    let socket = Framed::new(socket, Ldc::new());
+    let (send_socket, receive_socket) = socket.split();
+
+    Ok((Arc::new(Mutex::new(send_socket)), receive_socket))
+}
+// [jw] end
+
 pub async fn receive_loop(
     mut socket: TcpStreamReceiveSocket,
     packet_enqueuers: Arc<Mutex<HashMap<StreamId, mpsc::UnboundedSender<BytesMut>>>>,

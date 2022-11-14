@@ -153,6 +153,103 @@ pub async fn accept_from_server(
     ))
 }
 
+// [jw] begin
+pub async fn connect_to_server(
+    server_ip: IpAddr,
+    port: u16,
+    // video_byterate: u32,
+    // bitrate_multiplier: f32,
+) -> StrResult<(
+    ThrottledUdpStreamSendSocket,
+    ThrottledUdpStreamReceiveSocket,
+)> {
+    let server_addr: SocketAddr = (server_ip, port).into();
+    let socket = trace_err!(UdpSocket::bind((LOCAL_IP, port)).await)?;
+    trace_err!(socket.connect(server_addr).await)?;
+
+    let rx = Arc::new(socket);
+    let tx = Arc::clone(&rx);
+
+    // let limiter = {
+    //     // The byterate and burst amount computation here is based
+    //     // on the previous C++ implementation.
+    //     let byterate = (video_byterate as f32 * bitrate_multiplier) as u32 + RESERVE_BYTERATE;
+    //     let byterate = std::cmp::max(MINIMUM_BYTERATE, byterate);
+    //     let burst = byterate / 1000;
+    //     let quota = Quota::per_second(NonZero::new(byterate).unwrap())
+    //         .allow_burst(NonZero::new(burst).unwrap());
+    //     Some(RateLimiter::direct(quota))
+    // };
+
+    Ok((
+        ThrottledUdpStreamSendSocket {
+            inner: tx,
+            limiter: Arc::new(None),
+        },
+        ThrottledUdpStreamReceiveSocket {
+            inner: rx,
+            buffer: BytesMut::new(),
+        },
+    ))
+}
+
+pub async fn listen_for_client(port: u16) -> StrResult<UdpSocket> {
+    trace_err!(UdpSocket::bind((LOCAL_IP, port)).await)
+}
+
+pub async fn accept_from_client(
+    socket: UdpSocket,
+    client_ip: IpAddr,
+    port: u16,
+    video_byterate: u32,
+    bitrate_multiplier: f32,
+) -> StrResult<(
+    ThrottledUdpStreamSendSocket,
+    ThrottledUdpStreamReceiveSocket,
+)> {
+    let mut buf = [0u8; 1500];
+    let (mut number_of_bytes, mut src_addr) = socket.recv_from(&mut buf).await.unwrap();
+    info!("Source addr: {}", src_addr);
+    let client_addr: SocketAddr = src_addr;
+
+    // let buf = &mut buf[..number_of_bytes];
+    // buf.reverse();
+    // if std::str::from_utf8(&buf).is_ok() {
+    //     info!("[jw]: {}",std::str::from_utf8(&buf).unwrap()); 
+    // }
+    // else {
+    //     info!("[jw]: Receive {}", number_of_bytes);
+    // }
+
+    trace_err!(socket.connect(client_addr).await)?;
+
+    let rx = Arc::new(socket);
+    let tx = Arc::clone(&rx);
+
+    let limiter = {
+        // The byterate and burst amount computation here is based
+        // on the previous C++ implementation.
+        let byterate = (video_byterate as f32 * bitrate_multiplier) as u32 + RESERVE_BYTERATE;
+        let byterate = std::cmp::max(MINIMUM_BYTERATE, byterate);
+        let burst = byterate / 1000;
+        let quota = Quota::per_second(NonZero::new(byterate).unwrap())
+            .allow_burst(NonZero::new(burst).unwrap());
+        Some(RateLimiter::direct(quota))
+    };
+
+    Ok((
+        ThrottledUdpStreamSendSocket {
+            inner: tx,
+            limiter: Arc::new(limiter),
+        },
+        ThrottledUdpStreamReceiveSocket {
+            inner: rx,
+            buffer: BytesMut::new(),
+        },
+    ))
+}
+// [jw] end
+
 pub async fn receive_loop(
     mut socket: ThrottledUdpStreamReceiveSocket,
     packet_enqueuers: Arc<Mutex<HashMap<StreamId, mpsc::UnboundedSender<BytesMut>>>>,

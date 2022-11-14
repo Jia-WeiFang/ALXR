@@ -53,6 +53,12 @@ const PLAYSPACE_SYNC_INTERVAL: Duration = Duration::from_millis(500);
 const NETWORK_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(1);
 const CLEANUP_PAUSE: Duration = Duration::from_millis(500);
 
+// [jw] begin
+fn mbits_to_bytes(value: u64) -> u32 {
+    (value * 1024 * 1024 / 8) as u32
+}
+// [jw] end
+
 // close stream on Drop (manual disconnection or execution canceling)
 struct StreamCloseGuard {
     is_connected: Arc<AtomicBool>,
@@ -115,55 +121,65 @@ async fn connection_pipeline(
 
     println!("host_name: {0}", handshake_packet.version);
 
-    let (mut proto_socket, server_ip) = tokio::select! {
-        res = connection_utils::announce_client_loop(handshake_packet) => {
-            match res? {
-                ConnectionError::ServerMessage(message) => {
-                    info!("Server response: {:?}", message);
-                    println!("Server response: {:?}", message);
-                    let message_str = match message {
-                        ServerHandshakePacket::ClientUntrusted => CLIENT_UNTRUSTED_MESSAGE,
-                        ServerHandshakePacket::IncompatibleVersions =>
-                            INCOMPATIBLE_VERSIONS_MESSAGE,
-                    };
-                    //set_loading_message(&*java_vm, &*activity_ref, hostname, message_str)?;
-                    println!("{0}", message_str);
-                    return Ok(());
-                }
-                ConnectionError::NetworkUnreachable => {
-                    info!("Network unreachable");
-                    println!("Network unreachable");
-                    //set_loading_message(
-                    //     &*java_vm,
-                    //     &*activity_ref,
-                    //     hostname,
-                    //     NETWORK_UNREACHABLE_MESSAGE,
-                    // )?;
-                    println!("{0}", NETWORK_UNREACHABLE_MESSAGE);
-                    time::sleep(RETRY_CONNECT_MIN_INTERVAL).await;
+    // let (mut proto_socket, server_ip) = tokio::select! {
+    //     res = connection_utils::announce_client_loop(handshake_packet) => {
+    //         match res? {
+    //             ConnectionError::ServerMessage(message) => {
+    //                 info!("Server response: {:?}", message);
+    //                 println!("Server response: {:?}", message);
+    //                 let message_str = match message {
+    //                     ServerHandshakePacket::ClientUntrusted => CLIENT_UNTRUSTED_MESSAGE,
+    //                     ServerHandshakePacket::IncompatibleVersions =>
+    //                         INCOMPATIBLE_VERSIONS_MESSAGE,
+    //                 };
+    //                 //set_loading_message(&*java_vm, &*activity_ref, hostname, message_str)?;
+    //                 println!("{0}", message_str);
+    //                 return Ok(());
+    //             }
+    //             ConnectionError::NetworkUnreachable => {
+    //                 info!("Network unreachable");
+    //                 println!("Network unreachable");
+    //                 //set_loading_message(
+    //                 //     &*java_vm,
+    //                 //     &*activity_ref,
+    //                 //     hostname,
+    //                 //     NETWORK_UNREACHABLE_MESSAGE,
+    //                 // )?;
+    //                 println!("{0}", NETWORK_UNREACHABLE_MESSAGE);
+    //                 time::sleep(RETRY_CONNECT_MIN_INTERVAL).await;
 
-                    // set_loading_message(
-                    //     &*java_vm,
-                    //     &*activity_ref,
-                    //     &private_identity.hostname,
-                    //     INITIAL_MESSAGE,
-                    // )
-                    // .ok();
-                    println!("{0}", INITIAL_MESSAGE);
-                    return Ok(());
-                }
-            }
-        },
-        pair = async {
-            loop {
-                if let Ok(pair) = ProtoControlSocket::connect_to(PeerType::Server).await {
-                    break pair;
-                }
+    //                 // set_loading_message(
+    //                 //     &*java_vm,
+    //                 //     &*activity_ref,
+    //                 //     &private_identity.hostname,
+    //                 //     INITIAL_MESSAGE,
+    //                 // )
+    //                 // .ok();
+    //                 println!("{0}", INITIAL_MESSAGE);
+    //                 return Ok(());
+    //             }
+    //         }
+    //     },
+    //     pair = async {
+    //         loop {
+    //             if let Ok(pair) = ProtoControlSocket::connect_to(PeerType::Server).await {
+    //                 break pair;
+    //             }
 
-                time::sleep(CONTROL_CONNECT_RETRY_PAUSE).await;
-            }
-        } => pair
+    //             time::sleep(CONTROL_CONNECT_RETRY_PAUSE).await;
+    //         }
+    //     } => pair
+    // };
+
+    // [jw] begin
+    let (mut proto_socket, server_ip) = loop {
+        if let Ok(pair) = ProtoControlSocket::connect_to(PeerType::Server).await {
+            break pair;
+        }
+
+        time::sleep(CONTROL_CONNECT_RETRY_PAUSE).await;
     };
+    // [jw] end
 
     trace_err!(proto_socket.send(&(headset_info, server_ip)).await)?;
     let config_packet = trace_err!(proto_socket.recv::<ClientConfigPacket>().await)?;
@@ -215,11 +231,57 @@ async fn connection_pipeline(
         session_desc.to_settings()
     };
 
-    let stream_socket_builder = StreamSocketBuilder::listen_for_server(
-        settings.connection.stream_port,
-        settings.connection.stream_protocol,
-    )
-    .await?;
+    // let stream_socket_builder = StreamSocketBuilder::listen_for_server(
+    //     settings.connection.stream_port,
+    //     settings.connection.stream_protocol,
+    // )
+    // .await?;
+
+    // if let Err(e) = control_sender
+    //     .lock()
+    //     .await
+    //     .send(&ClientControlPacket::StreamReady)
+    //     .await
+    // {
+    //     info!("Server disconnected. Cause: {}", e);
+    //     println!("Server disconnected. Cause: {}", e);
+    //     // set_loading_message(
+    //     //     &*java_vm,
+    //     //     &*activity_ref,
+    //     //     hostname,
+    //     //     SERVER_DISCONNECTED_MESSAGE,
+    //     // )?;
+    //     unsafe { crate::alxr_on_server_disconnect() };
+    //     return Ok(());
+    // }
+    // println!("StreamReady");
+
+    // let stream_socket = tokio::select! {
+    //     res = stream_socket_builder.accept_from_server(
+    //         server_ip,
+    //         settings.connection.stream_port,
+    //     ) => res?,
+    //     _ = time::sleep(Duration::from_secs(5)) => {
+    //         println!("Timeout while setting up streams");
+    //         return fmt_e!("Timeout while setting up streams");
+    //     }
+    // };
+    // let stream_socket = Arc::new(stream_socket);
+    // info!("Connected to server");
+    // println!("Connected to server");
+
+    // [jw] begin
+    let stream_socket = tokio::select! {
+        res = StreamSocketBuilder::connect_to_server(
+            server_ip,
+            settings.connection.stream_port,
+            settings.connection.stream_protocol,
+            mbits_to_bytes(settings.video.encode_bitrate_mbs)
+        ) => res?,
+        _ = time::sleep(Duration::from_secs(5)) => {
+            return fmt_e!("Timeout while setting up streams");
+        }
+    };
 
     if let Err(e) = control_sender
         .lock()
@@ -240,19 +302,10 @@ async fn connection_pipeline(
     }
     println!("StreamReady");
 
-    let stream_socket = tokio::select! {
-        res = stream_socket_builder.accept_from_server(
-            server_ip,
-            settings.connection.stream_port,
-        ) => res?,
-        _ = time::sleep(Duration::from_secs(5)) => {
-            println!("Timeout while setting up streams");
-            return fmt_e!("Timeout while setting up streams");
-        }
-    };
     let stream_socket = Arc::new(stream_socket);
     info!("Connected to server");
     println!("Connected to server");
+    // [jw] end
 
     let is_connected = Arc::new(AtomicBool::new(true));
     let _stream_guard = StreamCloseGuard {
