@@ -21,6 +21,11 @@
 #include <map>
 #include <optional>
 
+// [jw] begin
+#include "alvr_server.h"
+bool clientShutDown = false;
+// [jw] end
+
 static void load_debug_privilege(void) {
 #ifdef _WIN32
     const DWORD flags = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY;
@@ -277,3 +282,10 @@ void SetBattery(unsigned long long top_level_path, float gauge_value, bool is_pl
         }
     }
 }
+
+// [kyl] begin
+void ClientDisconnect() {
+    clientShutDown = true;
+    Info("Client ShutDown");
+}
+// [kyl] end

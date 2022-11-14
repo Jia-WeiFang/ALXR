@@ -249,6 +249,22 @@ async fn http_api(
             }
             reply(StatusCode::BAD_REQUEST)?
         }
+
+        // [YuanChun] begin
+        "/api/user/captureTrigger" => {
+            if let Ok(data) = from_request_body::<json::Value>(request).await {
+                let captureTriggerValue = data.get("captureTrigger").unwrap().as_bool().unwrap();
+                unsafe {crate::captureTrigger(captureTriggerValue);}
+                info!("start capturing");
+                reply(StatusCode::OK)?
+            }
+            else {
+                error!("[User] /api/user/captureTrigger failed");
+                reply(StatusCode::BAD_REQUEST)?
+            }
+        }
+        // [YuanChun] end
+
         other_uri => {
             if other_uri.contains("..") {
                 // Attempted tree traversal

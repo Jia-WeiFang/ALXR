@@ -1,3 +1,7 @@
+// [kyl] begin
+#include <string>
+#include <stdio.h>
+// [kyl] end
 
 #include "VideoEncoderNVENC.h"
 #include "NvCodecUtils.h"
@@ -8,9 +12,21 @@
 #include "alvr_server/Settings.h"
 #include "alvr_server/Utils.h"
 
+// [kyl] begin
+using namespace DirectX;
+#include "alvr_server/alvr_server.h"
+#include "alvr_server/bindings.h"
+bool captureTriggerValue = false;
+void captureTrigger(
+    bool _captureTriggerValue
+){
+	captureTriggerValue = !captureTriggerValue;
+}
+// [kyl] end
+
 VideoEncoderNVENC::VideoEncoderNVENC(std::shared_ptr<CD3DRender> pD3DRender
 	, std::shared_ptr<ClientConnection> listener
-	, int width, int height)
+	, int width, int height, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp, std::vector<ID3D11Texture2D*> qrcodeTex)
 	: m_pD3DRender(pD3DRender)
 	, m_nFrame(0)
 	, m_Listener(listener)
@@ -19,6 +35,9 @@ VideoEncoderNVENC::VideoEncoderNVENC(std::shared_ptr<CD3DRender> pD3DRender
 	, m_renderWidth(width)
 	, m_renderHeight(height)
 	, m_bitrateInMBits(Settings::Instance().mEncodeBitrateMBs)
+	, frames_vec_ptr(frames_vec)
+	, timeStamp_ptr(timeStamp)
+	, qrcodeTex_ptr(qrcodeTex)
 {
 	
 }
@@ -63,6 +82,13 @@ void VideoEncoderNVENC::Initialize()
 		}
 		throw MakeException("NvEnc CreateEncoder failed. Code=%d %hs", e.getErrorCode(), e.what());
 	}
+
+	// [kyl] begin
+	if(remove("encodeVideo.264") != 0)
+		Info("Error deleting H264 file");
+  	else
+		Info("H264 file successfully deleted");
+	// [kyl] end
 
 	Debug("CNvEncoder is successfully initialized.\n");
 }
@@ -113,6 +139,40 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 	ID3D11Texture2D *pInputTexture = reinterpret_cast<ID3D11Texture2D*>(encoderInputFrame->inputPtr);
 	m_pD3DRender->GetContext()->CopyResource(pInputTexture, pTexture);
 
+	// [kyl] begin
+	if (!clientShutDown && captureTriggerValue) {
+		D3D11_BOX box;
+		box.left = 0, box.right = 128;
+		box.top = 0,  box.bottom = 128;
+		box.front = 0, box.back = 1;
+		m_pD3DRender->GetContext()->CopySubresourceRegion(
+			pInputTexture, 0,
+			200, 200, 0,
+			qrcodeTex_ptr[qrcode_cnt%1000], 0, &box
+		);
+
+		ID3D11Texture2D *bufferTexture;
+		ScratchImage img;
+		HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), pInputTexture, img);
+		if (FAILED(hr)) {
+			Info("copy texture fail");	
+		}
+		else {
+			hr = CreateTexture(m_pD3DRender->GetDevice(), img.GetImages(), img.GetImageCount(), img.GetMetadata(), (ID3D11Resource**)(&bufferTexture));
+			if (FAILED(hr)) {
+				Info("create buffer texture fail");	
+			}
+			else {
+				lock.lock();
+				(*frames_vec_ptr).push_back(bufferTexture); // save frames for capture
+				(*timeStamp_ptr).push_back(qrcode_cnt); // save qrcode index
+				qrcode_cnt += 1;
+				lock.unlock();
+			}
+		}
+	}
+	// [kyl] end
+
 	NV_ENC_PIC_PARAMS picParams = {};
 	if (insertIDR) {
 		Debug("Inserting IDR frame.\n");
@@ -124,9 +184,17 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 		m_Listener->GetStatistics()->EncodeOutput(GetTimestampUs() - presentationTime);
 	}
 
+	// [kyl] begin
+	fs.open("encodeVideo.264", std::fstream::out |  std::fstream::binary | std::fstream::app);
+
 	m_nFrame += (int)vPacket.size();
 	for (std::vector<uint8_t> &packet : vPacket)
 	{
+		if (!clientShutDown) {
+			if (fs) {
+				fs.write(reinterpret_cast<char*>(packet.data()), packet.size());
+			}
+		}
 		if (fpOut) {
 			fpOut.write(reinterpret_cast<char*>(packet.data()), packet.size());
 		}
@@ -134,6 +202,20 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 			m_Listener->SendVideo(packet.data(), (int)packet.size(), targetTimestampNs);
 		}
 	}
+
+	fs.close();
+	// [kyl] end
+
+	// m_nFrame += (int)vPacket.size();
+	// for (std::vector<uint8_t> &packet : vPacket)
+	// {
+	// 	if (fpOut) {
+	// 		fpOut.write(reinterpret_cast<char*>(packet.data()), packet.size());
+	// 	}
+	// 	if (m_Listener) {
+	// 		m_Listener->SendVideo(packet.data(), (int)packet.size(), targetTimestampNs);
+	// 	}
+	// }
 }
 
 void VideoEncoderNVENC::FillEncodeConfig(NV_ENC_INITIALIZE_PARAMS &initializeParams, int refreshRate, int renderWidth, int renderHeight, uint64_t bitrateBits)

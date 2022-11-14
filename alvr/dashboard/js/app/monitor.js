@@ -70,11 +70,40 @@ define([
                 initAddClientModal(templateAddClient);
                 initPerformanceGraphs();
 
+                // [YuanChun] begin
+                captureTrigger();
+                // [YuanChun] end
+
                 updateClients();
             });
 
             setInterval(fillPerformanceGraphs, 31);
         }
+
+        // [YuanChun] begin
+        function captureTrigger() {
+            captureTriggerBtn = document.getElementById("captureTrigger");
+            if(captureTriggerBtn) {
+                captureTriggerBtn.addEventListener("click", function (e) {
+                    $.ajax({
+                        type: "POST",
+                        url: "/api/user/captureTrigger",
+                        contentType: "application/json;charset=UTF-8",
+                        data: JSON.stringify({
+                            captureTrigger: Boolean(true),
+                        }),
+                        processData: false,
+                        success: function (res) {
+                            console.log("[User] Capture success with ", res);
+                        },
+                        error: function (res) {
+                            console.log("[User] Capture failed with ", res);
+                        },
+                    });
+                });
+            }
+        }
+        // [YuanChun] end
 
         function updateClients() {
             $("#newClientsDiv" + " table").empty();

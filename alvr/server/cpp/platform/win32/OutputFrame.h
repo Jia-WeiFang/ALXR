@@ -9,10 +9,8 @@
 #include <d3d11_1.h>
 #include <wincodec.h>
 #include <wincodecsdk.h>
-// [kyl] begin
 #include "DirectXTex/DirectXTexP.h"
 #include "DirectXTex/DirectXTex.h"
-// [kyl] end
 #include "alvr_server/ClientConnection.h"
 #include "alvr_server/Utils.h"
 #include "FrameRender.h"
@@ -24,6 +22,10 @@
 #endif
 #include "alvr_server/IDRScheduler.h"
 
+// [kyl] begin
+#include "alvr_server/alvr_server.h"
+// [kyl] end
+
 
 	using Microsoft::WRL::ComPtr;
 
@@ -32,46 +34,34 @@
 	// as soon as we know rendering made it this frame.  This step of the pipeline
 	// should run about 3ms per frame.
 	//----------------------------------------------------------------------------
-	class CEncoder : public CThread
+	class OutputFrame : public CThread
 	{
 	public:
-		CEncoder();
-		~CEncoder();
+		OutputFrame();
+		~OutputFrame();
 
-		void Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener, std::vector<ID3D11Texture2D*> *frame_vec, std::vector<uint64_t> *timeStamp);
-
-		bool CopyToStaging(ID3D11Texture2D *pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering
-			, uint64_t presentationTime, uint64_t targetTimestampNs, const std::string& message, const std::string& debugText);
+		void Initialize(std::shared_ptr<CD3DRender> d3dRender, std::vector<ID3D11Texture2D*> *frame_vec, std::vector<uint64_t> *timeStamp);
 
 		virtual void Run();
 
 		virtual void Stop();
 
-		void NewFrameReady();
-
-		void WaitForEncode();
-
-		void OnStreamStart();
-
-		void OnPacketLoss();
-
-		void InsertIDR();
-
-		// [kyl] begin
-		std::vector<ID3D11Texture2D*> *frames_vec_ptr;
+        // [kyl] begin
+        std::vector<ID3D11Texture2D*> *frames_vec_ptr;
 		std::vector<uint64_t> *timeStamp_ptr;
-		std::vector<ID3D11Texture2D*> qrcodeTex;
-		// [kyl] end
+        // [kyl] end
 
 	private:
 		CThreadEvent m_newFrameReady, m_encodeFinished;
 		std::shared_ptr<VideoEncoder> m_videoEncoder;
+		std::shared_ptr<CD3DRender> m_pD3DRender;
+
 		bool m_bExiting;
-		uint64_t m_presentationTime;
 		uint64_t m_targetTimestampNs;
+		wchar_t filepath[256];
 
-		std::shared_ptr<FrameRender> m_FrameRender;
-
-		IDRScheduler m_scheduler;
+        // [kyl] begin
+        uint64_t timeStamp;
+        // [kyl] end
 	};
 

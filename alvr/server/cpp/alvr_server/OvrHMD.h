@@ -16,6 +16,11 @@ class OvrController;
 class OvrViveTrackerProxy;
 
 class CEncoder;
+
+// [kyl] begin
+class OutputFrame;
+// [kyl] end
+
 #ifdef _WIN32
 class CD3DRender;
 #endif
@@ -74,6 +79,27 @@ class OvrHmd : public TrackedDevice,
     std::shared_ptr<CEncoder> m_encoder;
 
     TrackingInfo m_TrackingInfo;
+
+    // [kyl] begin
+    std::shared_ptr<OutputFrame> m_outputframe1;
+    std::shared_ptr<OutputFrame> m_outputframe2;
+    std::shared_ptr<OutputFrame> m_outputframe3;
+    std::shared_ptr<OutputFrame> m_outputframe4;
+    std::shared_ptr<OutputFrame> m_outputframe5;
+    std::shared_ptr<OutputFrame> m_outputframe6;
+    std::shared_ptr<OutputFrame> m_outputframe7;
+    std::shared_ptr<OutputFrame> m_outputframe8;
+    std::shared_ptr<OutputFrame> m_outputframe9;
+    std::shared_ptr<OutputFrame> m_outputframe10;
+    std::shared_ptr<OutputFrame> m_outputframe11;
+    std::shared_ptr<OutputFrame> m_outputframe12;
+    std::shared_ptr<OutputFrame> m_outputframe13;
+    std::shared_ptr<OutputFrame> m_outputframe14;
+    std::shared_ptr<OutputFrame> m_outputframe15;
+    std::vector<ID3D11Texture2D*> frames_vec;
+    std::vector<uint64_t> timeStamp;
+    // [kyl] end
+
   private:
     ViewsConfigData views_config;
 

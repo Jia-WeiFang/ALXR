@@ -12,8 +12,17 @@
 #include "bindings.h"
 #include <cfloat>
 
+// [kyl] begin
+#include <iostream>
+#include <thread>
+#include "platform/win32/mutex.h"
+// [kyl] end
+
 #ifdef _WIN32
 #include "platform/win32/CEncoder.h"
+// [kyl] begin
+#include "platform/win32/OutputFrame.h"
+// [kyl] end
 #elif __APPLE__
 #include "platform/macos/CEncoder.h"
 #else
@@ -113,6 +122,83 @@ OvrHmd::~OvrHmd() {
         m_encoder->Stop();
         m_encoder.reset();
     }
+
+    // [kyl] begin
+    if (m_outputframe1) {
+        m_outputframe1->Stop();
+        m_outputframe1.reset();
+    }
+
+    if (m_outputframe2) {
+        m_outputframe2->Stop();
+        m_outputframe2.reset();
+    }
+
+    if (m_outputframe3) {
+        m_outputframe3->Stop();
+        m_outputframe3.reset();
+    }
+
+    if (m_outputframe4) {
+        m_outputframe4->Stop();
+        m_outputframe4.reset();
+    }
+
+    if (m_outputframe5) {
+        m_outputframe5->Stop();
+        m_outputframe5.reset();
+    }
+
+    if (m_outputframe6) {
+        m_outputframe6->Stop();
+        m_outputframe6.reset();
+    }
+
+    if (m_outputframe7) {
+        m_outputframe7->Stop();
+        m_outputframe7.reset();
+    }
+
+    if (m_outputframe8) {
+        m_outputframe8->Stop();
+        m_outputframe8.reset();
+    }
+
+    if (m_outputframe9) {
+        m_outputframe9->Stop();
+        m_outputframe9.reset();
+    }
+
+    if (m_outputframe10) {
+        m_outputframe10->Stop();
+        m_outputframe10.reset();
+    }
+
+    // if (m_outputframe11) {
+    //     m_outputframe11->Stop();
+    //     m_outputframe11.reset();
+    // }
+
+    // if (m_outputframe12) {
+    //     m_outputframe12->Stop();
+    //     m_outputframe12.reset();
+    // }
+
+    // if (m_outputframe13) {
+    //     m_outputframe13->Stop();
+    //     m_outputframe13.reset();
+    // }
+
+    // if (m_outputframe14) {
+    //     m_outputframe14->Stop();
+    //     m_outputframe14.reset();
+    // }
+
+    // if (m_outputframe15) {
+    //     m_outputframe15->Stop();
+    //     m_outputframe15.reset();
+    // }
+    // [kyl] end
 
     if (m_Listener) {
         Debug("OvrHmd::~OvrHmd(): Stopping network...\n");
@@ -387,7 +473,7 @@ void OvrHmd::StartStreaming() {
 #ifdef _WIN32
         m_encoder = std::make_shared<CEncoder>();
         try {
-            m_encoder->Initialize(m_D3DRender, m_Listener);
+            m_encoder->Initialize(m_D3DRender, m_Listener, &frames_vec, &timeStamp);
         } catch (Exception e) {
             Error("Your GPU does not meet the requirements for video encoding. %s %s\n%s %s\n",
                   "If you get this error after changing some settings, you can revert them by",
@@ -400,6 +486,69 @@ void OvrHmd::StartStreaming() {
         m_directModeComponent->SetEncoder(m_encoder);
 
         m_encoder->OnStreamStart();
+
+        // [kyl] begin
+        m_outputframe1 = std::make_shared<OutputFrame>();
+        m_outputframe1->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe1->Start();
+
+        m_outputframe2 = std::make_shared<OutputFrame>();
+        m_outputframe2->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe2->Start();
+
+        m_outputframe3 = std::make_shared<OutputFrame>();
+        m_outputframe3->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe3->Start();
+
+        m_outputframe4 = std::make_shared<OutputFrame>();
+        m_outputframe4->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe4->Start();
+
+        m_outputframe5 = std::make_shared<OutputFrame>();
+        m_outputframe5->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe5->Start();
+
+        m_outputframe6 = std::make_shared<OutputFrame>();
+        m_outputframe6->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe6->Start();
+
+        m_outputframe7 = std::make_shared<OutputFrame>();
+        m_outputframe7->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe7->Start();
+
+        m_outputframe8 = std::make_shared<OutputFrame>();
+        m_outputframe8->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe8->Start();
+
+        m_outputframe9 = std::make_shared<OutputFrame>();
+        m_outputframe9->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe9->Start();
+
+        m_outputframe10 = std::make_shared<OutputFrame>();
+        m_outputframe10->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        m_outputframe10->Start();
+
+        // m_outputframe11 = std::make_shared<OutputFrame>();
+        // m_outputframe11->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe11->Start();
+
+        // m_outputframe12 = std::make_shared<OutputFrame>();
+        // m_outputframe12->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe12->Start();
+
+        // m_outputframe13 = std::make_shared<OutputFrame>();
+        // m_outputframe13->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe13->Start();
+
+        // m_outputframe14 = std::make_shared<OutputFrame>();
+        // m_outputframe14->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe14->Start();
+
+        // m_outputframe15 = std::make_shared<OutputFrame>();
+        // m_outputframe15->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe15->Start();
+        // [kyl] end
+
 #elif __APPLE__
         m_encoder = std::make_shared<CEncoder>();
 #else

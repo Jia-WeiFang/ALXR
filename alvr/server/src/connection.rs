@@ -1077,6 +1077,11 @@ async fn connection_pipeline() -> StrResult {
                 Ok(_) => (),
                 Err(e) => {
                     alvr_session::log_event(ServerEvent::ClientDisconnected);
+
+                    // [kyl] start
+                    unsafe { crate::ClientDisconnect() };
+                    // [kyl] end
+
                     info!("Client disconnected. Cause: {e}");
                     break;
                 }

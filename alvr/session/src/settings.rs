@@ -569,7 +569,7 @@ pub fn session_settings_default() -> SettingsDefault {
             client_request_realtime_decoder: true,
             use_10bit_encoder: false,
             sw_thread_count: 0,
-            encode_bitrate_mbs: 30,
+            encode_bitrate_mbs: 32,
             adaptive_bitrate: SwitchDefault {
                 enabled: true,
                 content: AdaptiveBitrateDescDefault {

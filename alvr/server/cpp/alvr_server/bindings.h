@@ -180,3 +180,13 @@ extern "C" void ShutdownSteamvr();
 extern "C" void SetOpenvrProperty(unsigned long long topLevelPath, OpenvrProperty prop);
 extern "C" void SetViewsConfig(ViewsConfigData config);
 extern "C" void SetBattery(unsigned long long topLevelPath, float gauge_value, bool is_plugged);
+
+// [kyl] begin
+extern "C" void ClientDisconnect();
+// [kyl] end
+
+// [YuanChun] begin
+extern "C" void captureTrigger(
+    bool captureTriggerValue
+);
+// [YuanChun] end

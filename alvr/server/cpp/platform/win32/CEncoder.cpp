@@ -1,6 +1,8 @@
 #include "CEncoder.h"
 
-
+// [kyl] begin
+using namespace DirectX;
+// [kyl] end
 		CEncoder::CEncoder()
 			: m_bExiting(false)
 			, m_targetTimestampNs(0)
@@ -18,11 +20,38 @@
 			}
 		}
 
-		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener) {
+		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp) {
 			m_FrameRender = std::make_shared<FrameRender>(d3dRender);
 			m_FrameRender->Startup();
 			uint32_t encoderWidth, encoderHeight;
 			m_FrameRender->GetEncodingResolution(&encoderWidth, &encoderHeight);
+
+			// [kyl] begin
+			// frames_vec_ptr = frames_vec;
+			// timeStamp_ptr = timeStamp;
+
+			// load qrcode
+			for (int i = 0; i < 1000; i++) {
+				wchar_t filepath[30];
+				swprintf_s(filepath, L"qrcode/%d.png", i);
+				auto img = std::make_unique<ScratchImage>();
+				ID3D11Texture2D *tex;
+				HRESULT hr = LoadFromWICFile(filepath, WIC_FLAGS_NONE, nullptr, *img);
+				if (FAILED(hr)) {
+					Info("Load qrcode fail");
+				}
+				else {
+					hr = CreateTexture(d3dRender->GetDevice(), img->GetImages(), img->GetImageCount(), img->GetMetadata(), (ID3D11Resource**)(&tex));
+					if (FAILED(hr)) {
+						Info("create qrcode texture fail");
+					}
+					else {
+						qrcodeTex.push_back(tex);
+					}
+				}
+			}
+			Info("qrcode size: %d", qrcodeTex.size());
+			// [kyl] end
 
 			Exception vceException;
 			Exception nvencException;
@@ -40,7 +69,7 @@
 			}
 			try {
 				Debug("Try to use VideoEncoderNVENC.\n");
-				m_videoEncoder = std::make_shared<VideoEncoderNVENC>(d3dRender, listener, encoderWidth, encoderHeight);
+				m_videoEncoder = std::make_shared<VideoEncoderNVENC>(d3dRender, listener, encoderWidth, encoderHeight, frames_vec, timeStamp, qrcodeTex);
 				m_videoEncoder->Initialize();
 				return;
 			}
