@@ -142,8 +142,8 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 	// [kyl] begin
 	if (!clientShutDown && captureTriggerValue) {
 		D3D11_BOX box;
-		box.left = 0, box.right = 64;
-		box.top = 0,  box.bottom = 64;
+		box.left = 0, box.right = 128;
+		box.top = 0,  box.bottom = 128;
 		box.front = 0, box.back = 1;
 		m_pD3DRender->GetContext()->CopySubresourceRegion(
 			pInputTexture, 0,
