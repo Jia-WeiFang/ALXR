@@ -27,9 +27,6 @@ using namespace DirectX;
 			m_FrameRender->GetEncodingResolution(&encoderWidth, &encoderHeight);
 
 			// [kyl] begin
-			// frames_vec_ptr = frames_vec;
-			// timeStamp_ptr = timeStamp;
-
 			// load qrcode
 			for (int i = 0; i < 1000; i++) {
 				wchar_t filepath[30];
