@@ -63,11 +63,27 @@ pub struct ClientConfigPacket {
     pub server_version: Option<Version>,
 }
 
+// [SM] begin
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FfrReconfig {
+    pub timestamp: u64,
+    pub center_size_x: f32,
+    pub center_size_y: f32,
+    pub center_shift_x: f32,
+    pub center_shift_y: f32,
+    pub edge_ratio_x: f32,
+    pub edge_ratio_y: f32,
+}
+// [SM] end
+
 #[derive(Serialize, Deserialize)]
 pub enum ServerControlPacket {
     StartStream,
     Restarting,
     KeepAlive,
+    // [SM] begin
+    FfrReconfig(FfrReconfig),
+    // [SM] end
     TimeSync(TimeSyncPacket), // legacy
     Reserved(String),
     ReservedBuffer(Vec<u8>),

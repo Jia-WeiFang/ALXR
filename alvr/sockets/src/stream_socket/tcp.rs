@@ -49,7 +49,7 @@ pub async fn connect_to_client(
     Ok((Arc::new(Mutex::new(send_socket)), receive_socket))
 }
 
-// [jw] begin
+// [CT] begin
 pub async fn listen_for_client(port: u16) -> StrResult<TcpListener> {
     trace_err!(TcpListener::bind((LOCAL_IP, port)).await)
 }
@@ -63,10 +63,7 @@ pub async fn accept_from_client(
     if client_address.ip() != client_ip {
         return fmt_e!("Connected to wrong server: {client_address} != {client_ip}");
     }
-
-    // [jw] extra
-    // trace_err!(socket.set_nodelay(true))?;
-    // [jw] extra
+    
     let socket = Framed::new(socket, Ldc::new());
     let (send_socket, receive_socket) = socket.split();
 

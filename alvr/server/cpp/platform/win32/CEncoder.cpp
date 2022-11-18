@@ -21,10 +21,25 @@ using namespace DirectX;
 		}
 
 		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp) {
+			// [SM] begin
+			m_d3dRender = d3dRender;
+
+			FFRData ffrData = FfrDataFromSettings();
 			m_FrameRender = std::make_shared<FrameRender>(d3dRender);
-			m_FrameRender->Startup();
-			uint32_t encoderWidth, encoderHeight;
-			m_FrameRender->GetEncodingResolution(&encoderWidth, &encoderHeight);
+			m_FrameRender->Startup(ffrData);
+
+			uint32_t encoderWidth = Settings::Instance().m_renderWidth, encoderHeight = Settings::Instance().m_renderHeight;
+
+			m_lock.lock();
+			m_ffrData = ffrData;
+			m_lock.unlock();
+			this->ffrUpdate(ffrData);
+			// [SM] end
+			
+			// m_FrameRender = std::make_shared<FrameRender>(d3dRender);
+			// m_FrameRender->Startup();
+			// uint32_t encoderWidth, encoderHeight;
+			// m_FrameRender->GetEncodingResolution(&encoderWidth, &encoderHeight);
 
 			// [kyl] begin
 			// load qrcode
@@ -94,7 +109,8 @@ using namespace DirectX;
 		{
 			m_presentationTime = presentationTime;
 			m_targetTimestampNs = targetTimestampNs;
-			m_FrameRender->Startup();
+
+			// m_FrameRender->Startup();
 
 			m_FrameRender->RenderFrame(pTexture, bounds, layerCount, recentering, message, debugText);
 			return true;
@@ -113,10 +129,36 @@ using namespace DirectX;
 				if (m_bExiting)
 					break;
 
+				// if (m_FrameRender->GetTexture())
+				// {
+				// 	m_videoEncoder->Transmit(m_FrameRender->GetTexture().Get(), m_presentationTime, m_targetTimestampNs, m_scheduler.CheckIDRInsertion());
+				// }
+
+				// [SM] begin
+				uint32_t encodeWidth, encodeHeight;
+				m_FrameRender->GetEncodingResolution(&encodeWidth, &encodeHeight);
+				// Info("[FFR] encodeWidth = %d, encodeHeight = %d\n", encodeWidth, encodeHeight);
 				if (m_FrameRender->GetTexture())
 				{
-					m_videoEncoder->Transmit(m_FrameRender->GetTexture().Get(), m_presentationTime, m_targetTimestampNs, m_scheduler.CheckIDRInsertion());
+					m_videoEncoder->Transmit(m_FrameRender->GetTexture().Get(), m_presentationTime, m_targetTimestampNs, m_scheduler.CheckIDRInsertion(),
+						encodeWidth, encodeHeight
+					);
 				}
+				
+				m_lock.lock();
+				if(memcmp(&m_ffrData, &m_ffrDataNext, sizeof(FFRData))) {
+					FfrReconfigSend(
+						m_targetTimestampNs,
+						m_ffrDataNext.centerSizeX, m_ffrDataNext.centerSizeY,
+						m_ffrDataNext.centerShiftX, m_ffrDataNext.centerShiftY,
+						m_ffrDataNext.edgeRatioX, m_ffrDataNext.edgeRatioY
+					);
+					m_FrameRender = std::make_shared<FrameRender>(m_d3dRender);
+					m_FrameRender->Startup(m_ffrDataNext);
+					m_ffrData = m_ffrDataNext;
+				}
+				m_lock.unlock();
+				// [SM] end
 
 				m_encodeFinished.Set();
 			}
@@ -153,3 +195,15 @@ using namespace DirectX;
 		void CEncoder::InsertIDR() {
 			m_scheduler.InsertIDR();
 		}
+
+// [SM] begin
+void CEncoder::ffrUpdate(FFRData ffrData) {
+	/* purely update ffrdata to avoid unnecessary sync-up issue */
+	ffrData.eyeWidth = m_ffrData.eyeWidth;
+	ffrData.eyeHeight = m_ffrData.eyeHeight;
+	m_lock.lock();
+	m_ffrDataNext = ffrData;
+	m_lock.unlock();
+	Info("[FFR] ffrUpdate Called\n");
+}
+// [SM] end

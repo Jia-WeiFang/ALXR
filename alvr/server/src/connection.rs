@@ -1,7 +1,7 @@
 use crate::{
     connection_utils, ClientListAction, EyeFov, TimeSync, TrackingInfo, TrackingInfo_Controller,
     TrackingInfo_Controller__bindgen_ty_1, TrackingQuat, TrackingVector3, CLIENTS_UPDATED_NOTIFIER,
-    HAPTICS_SENDER, RESTART_NOTIFIER, SESSION_MANAGER, TIME_SYNC_SENDER, VIDEO_SENDER,
+    HAPTICS_SENDER, RESTART_NOTIFIER, SESSION_MANAGER, TIME_SYNC_SENDER, VIDEO_SENDER, FFR_RECONFIG_SENDER,
 };
 use alvr_audio::{AudioDevice, AudioDeviceType};
 use alvr_common::{
@@ -90,7 +90,7 @@ struct ConnectionInfo {
     control_receiver: ControlSocketReceiver<ClientControlPacket>,
 }
 
-// [jw] begin
+// [CT] begin
 // async fn client_handshake(
 //     trusted_discovered_client_id: Option<ClientId>,
 // ) -> StrResult<ConnectionInfo> {
@@ -125,13 +125,13 @@ async fn client_handshake() -> StrResult<ConnectionInfo> {
         time::sleep(CONTROL_CONNECT_RETRY_PAUSE).await;
     };
 
-    info!("[jw] Client ip: {}", client_ip);
-    // [jw] end
+    info!("[CT] Client ip: {}", client_ip);
+    // [CT] end
 
     let (headset_info, server_ip) =
         trace_err!(proto_socket.recv::<(HeadsetInfoPacket, IpAddr)>().await)?;
 
-    info!("[jw] Server ip: {}", server_ip);
+    info!("[CT] Server ip: {}", server_ip);
 
     let settings = SESSION_MANAGER.lock().get().to_settings();
 
@@ -828,6 +828,38 @@ async fn connection_pipeline() -> StrResult {
         }
     };
 
+    // [SM] begin
+    let ffr_reconfig_send_loop = {
+        let control_sender = Arc::clone(&control_sender);
+        async move {
+            let (data_sender, mut data_receiver) = tmpsc::unbounded_channel();
+            *FFR_RECONFIG_SENDER.lock() = Some(data_sender);
+
+            while let Some(reconfig) = data_receiver.recv().await {
+                let res = control_sender
+                    .lock()
+                    .await
+                    .send(&ServerControlPacket::FfrReconfig(reconfig))
+                    .await;
+                if let Err(e) = res {
+                    alvr_session::log_event(ServerEvent::ClientDisconnected);
+
+                    // [kyl] start
+                    unsafe { crate::ClientDisconnect() };
+                    // [kyl] end
+
+                    info!("Client disconnected. Cause: {e}");
+                    break;
+                }
+                else {
+                    info!("[FFR] Reconfig Packet Sent");
+                }
+            }
+            Ok(())
+        }
+    };
+    // [SM] end
+
     fn to_tracking_quat(quat: Quat) -> TrackingQuat {
         TrackingQuat {
             x: quat.x,
@@ -1113,6 +1145,10 @@ async fn connection_pipeline() -> StrResult {
         // Leave these loops on the current task
         res = keepalive_loop => res,
         res = control_loop => res,
+
+        // [SM] begin
+        res = ffr_reconfig_send_loop => res,
+        // [SM] end
 
         _ = RESTART_NOTIFIER.notified() => {
             control_sender

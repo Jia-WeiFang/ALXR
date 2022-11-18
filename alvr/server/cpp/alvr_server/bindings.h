@@ -190,3 +190,17 @@ extern "C" void captureTrigger(
     bool captureTriggerValue
 );
 // [YuanChun] end
+
+// [SM] begin
+extern "C" void(*FfrReconfigSend)(
+    unsigned long long timestamp,
+    float centerSizeX, float centerSizeY,
+    float centerShiftX, float centerShiftY,
+    float edgeRatioX, float edgeRatioY
+);
+extern "C" void ffrUpdate(
+    float centerSizeX, float centerSizeY,
+    float centerShiftX, float centerShiftY,
+    float edgeRatioX, float edgeRatioY
+);
+// [SM] end

@@ -21,7 +21,7 @@ use alvr_filesystem::{self as afs, Layout};
 use alvr_session::{
     ClientConnectionDesc, OpenvrPropValue, OpenvrPropertyKey, ServerEvent, SessionManager,
 };
-use alvr_sockets::{Haptics, TimeSyncPacket, VideoFrameHeaderPacket};
+use alvr_sockets::{Haptics, TimeSyncPacket, VideoFrameHeaderPacket, FfrReconfig};
 use graphics_info::GpuVendor;
 use parking_lot::Mutex;
 use std::{
@@ -57,6 +57,11 @@ lazy_static! {
         Mutex::new(None);
     static ref TIME_SYNC_SENDER: Mutex<Option<mpsc::UnboundedSender<TimeSyncPacket>>> =
         Mutex::new(None);
+
+    // [SM] begin
+    static ref FFR_RECONFIG_SENDER: Mutex<Option<mpsc::UnboundedSender<FfrReconfig>>> =
+        Mutex::new(None);
+    // [SM] end
 
     static ref CLIENTS_UPDATED_NOTIFIER: Notify = Notify::new();
     static ref RESTART_NOTIFIER: Notify = Notify::new();
@@ -355,6 +360,25 @@ pub unsafe extern "C" fn HmdDriverFactory(
         }
     }
 
+    // [SM] begin
+    extern "C" fn ffr_reconfig_send(
+        timestamp: u64, 
+        center_size_x: f32, center_size_y: f32,
+        center_shift_x: f32, center_shift_y: f32,
+        edge_ratio_x: f32, edge_ratio_y: f32,
+    ) {
+        if let Some(sender) = &*FFR_RECONFIG_SENDER.lock() {
+            let reconfig = FfrReconfig {
+                timestamp,
+                center_size_x, center_size_y,
+                center_shift_x, center_shift_y,
+                edge_ratio_x, edge_ratio_y,
+            };
+            sender.send(reconfig).ok();
+        }
+    }
+    // [SM] end
+
     extern "C" fn time_sync_send(data: TimeSync) {
         if let Some(sender) = &*TIME_SYNC_SENDER.lock() {
             let time_sync = TimeSyncPacket {
@@ -417,6 +441,9 @@ pub unsafe extern "C" fn HmdDriverFactory(
     TimeSyncSend = Some(time_sync_send);
     ShutdownRuntime = Some(_shutdown_runtime);
     PathStringToHash = Some(path_string_to_hash);
+    // [SM] begin
+    FfrReconfigSend = Some(ffr_reconfig_send);
+    // [SM] end
 
     // cast to usize to allow the variables to cross thread boundaries
     let interface_name_usize = interface_name as usize;

@@ -53,11 +53,11 @@ const PLAYSPACE_SYNC_INTERVAL: Duration = Duration::from_millis(500);
 const NETWORK_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(1);
 const CLEANUP_PAUSE: Duration = Duration::from_millis(500);
 
-// [jw] begin
+// [CT] begin
 fn mbits_to_bytes(value: u64) -> u32 {
     (value * 1024 * 1024 / 8) as u32
 }
-// [jw] end
+// [CT] end
 
 // close stream on Drop (manual disconnection or execution canceling)
 struct StreamCloseGuard {
@@ -171,7 +171,7 @@ async fn connection_pipeline(
     //     } => pair
     // };
 
-    // [jw] begin
+    // [CT] begin
     let (mut proto_socket, server_ip) = loop {
         if let Ok(pair) = ProtoControlSocket::connect_to(PeerType::Server).await {
             break pair;
@@ -179,7 +179,7 @@ async fn connection_pipeline(
 
         time::sleep(CONTROL_CONNECT_RETRY_PAUSE).await;
     };
-    // [jw] end
+    // [CT] end
 
     trace_err!(proto_socket.send(&(headset_info, server_ip)).await)?;
     let config_packet = trace_err!(proto_socket.recv::<ClientConfigPacket>().await)?;
@@ -270,7 +270,7 @@ async fn connection_pipeline(
     // info!("Connected to server");
     // println!("Connected to server");
 
-    // [jw] begin
+    // [CT] begin
     let stream_socket = tokio::select! {
         res = StreamSocketBuilder::connect_to_server(
             server_ip,
@@ -305,7 +305,7 @@ async fn connection_pipeline(
     let stream_socket = Arc::new(stream_socket);
     info!("Connected to server");
     println!("Connected to server");
-    // [jw] end
+    // [CT] end
 
     let is_connected = Arc::new(AtomicBool::new(true));
     let _stream_guard = StreamCloseGuard {
@@ -771,7 +771,20 @@ async fn connection_pipeline(
                                 });
 
                                 legacy_receive_data_sender.lock().await.send(buffer).ok();
+                            }
+                            // [SM] begin
+                            Ok(ServerControlPacket::FfrReconfig(reconfig)) => {
+                                info!("[FFR] Reconfig received with timestamp {}", reconfig.timestamp);
+                                unsafe {
+                                    crate::ffrReconfig(
+                                        reconfig.timestamp,
+                                        reconfig.center_size_x, reconfig.center_size_y,
+                                        reconfig.center_shift_x, reconfig.center_shift_y,
+                                        reconfig.edge_ratio_x, reconfig.edge_ratio_y,
+                                    );
+                                }
                             },
+                            // [SM] end
                             Ok(_) => (),
                             Err(e) => {
                                 info!("Server disconnected. Cause: {}", e);

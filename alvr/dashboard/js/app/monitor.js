@@ -105,6 +105,40 @@ define([
         }
         // [YuanChun] end
 
+        // [SM] begin
+        function ffrReconfig() {
+            keys = ["centerSizeX", "centerSizeY", "centerShiftX", "centerShiftY", "edgeRatioX", "edgeRatioY"];
+            j = {};
+            for(let i = 0; i < keys.length; i++) {
+                j[keys[i]] = Number(document.getElementById("_root_video_foveatedRendering_content_" + keys[i]).value);
+            }
+            $.ajax({
+                type: "POST",
+                url: "/api/user/ffrReconfig",
+                contentType: "application/json;charset=UTF-8",
+                data: JSON.stringify(j),
+                processData: false,
+                success: function (res) {
+                    console.log("[FFR] update success with ", res);
+                },
+                error: function (res) {
+                    console.log("[FFR] update failed with ", res);
+                },
+            });  
+        }
+
+        ffrBtn = document.getElementById("ffrBtnApply");
+        if(ffrBtn) {
+            ffrBtn.addEventListener("click", ffrReconfig);
+        }
+
+        let keys = ["centerSizeX", "centerSizeY", "centerShiftX", "centerShiftY", "edgeRatioX", "edgeRatioY"];
+        for(let i = 0; i < keys.length; i++) {
+            let ele = document.getElementById("_root_video_foveatedRendering_content_" + keys[i]);
+            ele.addEventListener("change", ffrReconfig);
+        }
+        // [SM] end
+
         function updateClients() {
             $("#newClientsDiv" + " table").empty();
             $("#trustedClientsDiv" + " table").empty();

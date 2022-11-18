@@ -265,6 +265,32 @@ async fn http_api(
         }
         // [YuanChun] end
 
+        // [SM] begin
+        "/api/user/ffrReconfig" => {
+            if let Ok(data) = from_request_body::<json::Value>(request).await {
+                info!("[FFR] Receive /api/user/ffrReconfig, data = {}", data);
+                let center_size_x = data.get("centerSizeX").unwrap().as_f64().unwrap();
+                let center_size_y = data.get("centerSizeY").unwrap().as_f64().unwrap();
+                let center_shift_x = data.get("centerShiftX").unwrap().as_f64().unwrap();
+                let center_shift_y = data.get("centerShiftY").unwrap().as_f64().unwrap();
+                let edge_ratio_x = data.get("edgeRatioX").unwrap().as_f64().unwrap();
+                let edge_ratio_y = data.get("edgeRatioY").unwrap().as_f64().unwrap();
+                unsafe {
+                    crate::ffrUpdate(
+                        center_size_x as f32, center_size_y as f32,
+                        center_shift_x as f32, center_shift_y as f32,
+                        edge_ratio_x as f32, edge_ratio_y as f32,
+                    );
+                }
+                reply(StatusCode::OK)?
+            }
+            else {
+                error!("[FFR] Receive /api/user/ffrReconfig");
+                reply(StatusCode::BAD_REQUEST)?
+            }
+        }
+        // [SM] end
+
         other_uri => {
             if other_uri.contains("..") {
                 // Attempted tree traversal

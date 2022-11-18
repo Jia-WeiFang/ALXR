@@ -2,6 +2,7 @@
 #include <string>
 #include <stdio.h>
 // [kyl] end
+#include <d3d11.h>
 
 #include "VideoEncoderNVENC.h"
 #include "NvCodecUtils.h"
@@ -117,18 +118,31 @@ void VideoEncoderNVENC::Shutdown()
 	}
 }
 
-void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR)
+// [SM] begin
+void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR, uint32_t encodeWidth, uint32_t encodeHeight)
 {
+	bool ffrChange = encodeWidth != m_NvNecoder->GetEncodeWidth() || encodeHeight != m_NvNecoder->GetEncodeHeight();
 	if (m_Listener) {
-		if (m_Listener->GetStatistics()->CheckBitrateUpdated()) {
+		if (m_Listener->GetStatistics()->CheckBitrateUpdated() || ffrChange) {
 			m_bitrateInMBits = m_Listener->GetStatistics()->GetBitrate();
 			NV_ENC_INITIALIZE_PARAMS initializeParams = { NV_ENC_INITIALIZE_PARAMS_VER };
 			NV_ENC_CONFIG encodeConfig = { NV_ENC_CONFIG_VER };
 			initializeParams.encodeConfig = &encodeConfig;
-			FillEncodeConfig(initializeParams, m_refreshRate, m_renderWidth, m_renderHeight, m_bitrateInMBits * 1'000'000);
+			FillEncodeConfig(initializeParams, m_refreshRate, encodeWidth, encodeHeight, m_bitrateInMBits * 1'000'000);
+
 			NV_ENC_RECONFIGURE_PARAMS reconfigureParams = { NV_ENC_RECONFIGURE_PARAMS_VER };
 			reconfigureParams.reInitEncodeParams = initializeParams;
-			m_NvNecoder->Reconfigure(&reconfigureParams);
+			reconfigureParams.forceIDR = ffrChange;
+
+			// Info("[NVENC] Reconfigure called!\n");
+			#include "NvEncoder.h"
+			try {
+				m_NvNecoder->Reconfigure(&reconfigureParams);
+			}
+			catch (const NVENCException &e){
+				Error("[NVENC] Reconfigure throws \"%s\"\n", e.what());
+			}
+			// Info("[NVENC] Reconfigure returned!\n");
 		}
 	}
 
@@ -137,7 +151,48 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 	const NvEncInputFrame* encoderInputFrame = m_NvNecoder->GetNextInputFrame();
 
 	ID3D11Texture2D *pInputTexture = reinterpret_cast<ID3D11Texture2D*>(encoderInputFrame->inputPtr);
-	m_pD3DRender->GetContext()->CopyResource(pInputTexture, pTexture);
+	// m_pD3DRender->GetContext()->CopyResource(pInputTexture, pTexture);
+
+	D3D11_BOX box;
+	box.left = 0, box.right = encodeWidth;
+	box.top = 0,  box.bottom = encodeHeight;
+	box.front = 0, box.back = 1;
+	m_pD3DRender->GetContext()->CopySubresourceRegion(
+		pInputTexture, 0,
+		0, 0, 0,
+		pTexture, 0, &box
+	);
+	// #ifdef ALVR_FFR_DEBUG
+	// 	if(ffrChange && Settings::Instance().m_logToDisk) {
+	// 		HRESULT hr;
+	// 		DirectX::ScratchImage scrImg;
+	// 		hr = DirectX::CaptureTexture(
+	// 			m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(),
+	// 			pInputTexture, scrImg
+	// 		);
+	// 		if(FAILED(hr)) {
+	// 			Info("[Cap] capture texture failed\n");
+	// 		}
+	// 		hr = DirectX::SaveToWICFile(
+	// 			scrImg.GetImages(), scrImg.GetImageCount(), 
+	// 			DirectX::WIC_FLAGS::WIC_FLAGS_NONE, GUID_ContainerFormatJpeg,
+	// 			L"" FFR_DEBUG_IMG_PATH_ENCODER
+	// 		);
+
+	// 		hr = DirectX::CaptureTexture(
+	// 			m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(),
+	// 			pTexture, scrImg
+	// 		);
+	// 		if(FAILED(hr)) {
+	// 			Info("[Cap] capture texture failed\n");
+	// 		}
+	// 		hr = DirectX::SaveToWICFile(
+	// 			scrImg.GetImages(), scrImg.GetImageCount(), 
+	// 			DirectX::WIC_FLAGS::WIC_FLAGS_NONE, GUID_ContainerFormatJpeg,
+	// 			L"" FFR_DEBUG_IMG_PATH_SHADER
+	// 		);
+	// 	}
+	// #endif
 
 	// [kyl] begin
 	if (!clientShutDown && captureTriggerValue) {
@@ -217,6 +272,108 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 	// 	}
 	// }
 }
+// [SM] end
+
+// void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR)
+// {
+// 	if (m_Listener) {
+// 		if (m_Listener->GetStatistics()->CheckBitrateUpdated()) {
+// 			m_bitrateInMBits = m_Listener->GetStatistics()->GetBitrate();
+// 			NV_ENC_INITIALIZE_PARAMS initializeParams = { NV_ENC_INITIALIZE_PARAMS_VER };
+// 			NV_ENC_CONFIG encodeConfig = { NV_ENC_CONFIG_VER };
+// 			initializeParams.encodeConfig = &encodeConfig;
+// 			FillEncodeConfig(initializeParams, m_refreshRate, m_renderWidth, m_renderHeight, m_bitrateInMBits * 1'000'000);
+// 			NV_ENC_RECONFIGURE_PARAMS reconfigureParams = { NV_ENC_RECONFIGURE_PARAMS_VER };
+// 			reconfigureParams.reInitEncodeParams = initializeParams;
+// 			m_NvNecoder->Reconfigure(&reconfigureParams);
+// 		}
+// 	}
+
+// 	std::vector<std::vector<uint8_t>> vPacket;
+
+// 	const NvEncInputFrame* encoderInputFrame = m_NvNecoder->GetNextInputFrame();
+
+// 	ID3D11Texture2D *pInputTexture = reinterpret_cast<ID3D11Texture2D*>(encoderInputFrame->inputPtr);
+// 	m_pD3DRender->GetContext()->CopyResource(pInputTexture, pTexture);
+
+// 	// [kyl] begin
+// 	if (!clientShutDown && captureTriggerValue) {
+// 		D3D11_BOX box;
+// 		box.left = 0, box.right = 128;
+// 		box.top = 0,  box.bottom = 128;
+// 		box.front = 0, box.back = 1;
+// 		m_pD3DRender->GetContext()->CopySubresourceRegion(
+// 			pInputTexture, 0,
+// 			m_renderWidth/20, m_renderHeight/10, 0,
+// 			qrcodeTex_ptr[qrcode_cnt%1000], 0, &box
+// 		);
+
+// 		ID3D11Texture2D *bufferTexture;
+// 		ScratchImage img;
+// 		HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), pInputTexture, img);
+// 		if (FAILED(hr)) {
+// 			Info("copy texture fail");	
+// 		}
+// 		else {
+// 			hr = CreateTexture(m_pD3DRender->GetDevice(), img.GetImages(), img.GetImageCount(), img.GetMetadata(), (ID3D11Resource**)(&bufferTexture));
+// 			if (FAILED(hr)) {
+// 				Info("create buffer texture fail");	
+// 			}
+// 			else {
+// 				lock.lock();
+// 				(*frames_vec_ptr).push_back(bufferTexture); // save frames for capture
+// 				(*timeStamp_ptr).push_back(qrcode_cnt); // save qrcode index
+// 				qrcode_cnt += 1;
+// 				lock.unlock();
+// 			}
+// 		}
+// 	}
+// 	// [kyl] end
+
+// 	NV_ENC_PIC_PARAMS picParams = {};
+// 	if (insertIDR) {
+// 		Debug("Inserting IDR frame.\n");
+// 		picParams.encodePicFlags = NV_ENC_PIC_FLAG_FORCEIDR;
+// 	}
+// 	m_NvNecoder->EncodeFrame(vPacket, &picParams);
+
+// 	if (m_Listener) {
+// 		m_Listener->GetStatistics()->EncodeOutput(GetTimestampUs() - presentationTime);
+// 	}
+
+// 	// [kyl] begin
+// 	fs.open("encodeVideo.264", std::fstream::out |  std::fstream::binary | std::fstream::app);
+
+// 	m_nFrame += (int)vPacket.size();
+// 	for (std::vector<uint8_t> &packet : vPacket)
+// 	{
+// 		if (!clientShutDown) {
+// 			if (fs) {
+// 				fs.write(reinterpret_cast<char*>(packet.data()), packet.size());
+// 			}
+// 		}
+// 		if (fpOut) {
+// 			fpOut.write(reinterpret_cast<char*>(packet.data()), packet.size());
+// 		}
+// 		if (m_Listener) {
+// 			m_Listener->SendVideo(packet.data(), (int)packet.size(), targetTimestampNs);
+// 		}
+// 	}
+
+// 	fs.close();
+// 	// [kyl] end
+
+// 	// m_nFrame += (int)vPacket.size();
+// 	// for (std::vector<uint8_t> &packet : vPacket)
+// 	// {
+// 	// 	if (fpOut) {
+// 	// 		fpOut.write(reinterpret_cast<char*>(packet.data()), packet.size());
+// 	// 	}
+// 	// 	if (m_Listener) {
+// 	// 		m_Listener->SendVideo(packet.data(), (int)packet.size(), targetTimestampNs);
+// 	// 	}
+// 	// }
+// }
 
 void VideoEncoderNVENC::FillEncodeConfig(NV_ENC_INITIALIZE_PARAMS &initializeParams, int refreshRate, int renderWidth, int renderHeight, uint64_t bitrateBits)
 {

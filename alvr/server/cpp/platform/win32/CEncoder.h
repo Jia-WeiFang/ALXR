@@ -23,6 +23,7 @@
 	#include "VideoEncoderSW.h"
 #endif
 #include "alvr_server/IDRScheduler.h"
+#include <queue>
 
 
 	using Microsoft::WRL::ComPtr;
@@ -57,6 +58,10 @@
 
 		void InsertIDR();
 
+		// [SM] begin
+		void ffrUpdate(FFRData ffrData);
+		// [SM] end
+
 		// [kyl] begin
 		std::vector<ID3D11Texture2D*> *frames_vec_ptr;
 		std::vector<uint64_t> *timeStamp_ptr;
@@ -73,5 +78,12 @@
 		std::shared_ptr<FrameRender> m_FrameRender;
 
 		IDRScheduler m_scheduler;
+
+		// [SM] begin
+		std::shared_ptr<CD3DRender> m_d3dRender;
+		FFRData m_ffrData;
+		FFRData m_ffrDataNext;
+		std::mutex m_lock;
+		// [SM] end
 	};
 

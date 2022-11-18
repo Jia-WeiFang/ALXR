@@ -26,6 +26,10 @@
 bool clientShutDown = false;
 // [jw] end
 
+// [SM] begin
+#include "platform/win32/FFR.h"
+// [SM] end
+
 static void load_debug_privilege(void) {
 #ifdef _WIN32
     const DWORD flags = TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY;
@@ -176,6 +180,15 @@ void (*TimeSyncSend)(TimeSync packet);
 void (*ShutdownRuntime)();
 unsigned long long (*PathStringToHash)(const char *path);
 
+// [SM] begin
+void(*FfrReconfigSend)(
+    unsigned long long timestamp,
+    float centerSizeX, float centerSizeY,
+    float centerShiftX, float centerShiftY,
+    float edgeRatioX, float edgeRatioY
+);
+// [SM] end
+
 void *CppEntryPoint(const char *interface_name, int *return_code) {
     // Initialize path constants
     init_paths();
@@ -289,3 +302,18 @@ void ClientDisconnect() {
     Info("Client ShutDown");
 }
 // [kyl] end
+
+// [SM] begin
+void ffrUpdate(
+    float centerSizeX, float centerSizeY,
+    float centerShiftX, float centerShiftY,
+    float edgeRatioX, float edgeRatioY
+){
+    FFRData ffrData = {};
+    /* eyeWidth and eyeHeight are invalid here */
+    ffrData.centerSizeX = centerSizeX, ffrData.centerSizeY = centerSizeY;
+    ffrData.centerShiftX = centerShiftX, ffrData.centerShiftY = centerShiftY;
+    ffrData.edgeRatioX = edgeRatioX, ffrData.edgeRatioY = edgeRatioY,
+    g_driver_provider.hmd->m_encoder->ffrUpdate(ffrData);
+}
+// [SM] end

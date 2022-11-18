@@ -20,7 +20,7 @@ FrameRender::~FrameRender()
 {
 }
 
-bool FrameRender::Startup()
+bool FrameRender::Startup(FFRData ffrData)
 {
 	if (m_pStagingTexture) {
 		return true;
@@ -307,7 +307,8 @@ bool FrameRender::Startup()
 	enableFFR = Settings::Instance().m_enableFoveatedRendering;
 	if (enableFFR) {
 		m_ffr = std::make_unique<FFR>(m_pD3DRender->GetDevice());
-		m_ffr->Initialize(m_pStagingTexture.Get());
+
+		m_ffr->Initialize(m_pStagingTexture.Get(), ffrData);
 
 		m_pStagingTexture = m_ffr->GetOutputTexture();
 	}

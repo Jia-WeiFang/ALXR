@@ -62,7 +62,7 @@ pub async fn connect(
     ))
 }
 
-// [jw] begin
+// [CT] begin
 pub async fn accept_from_client(
     socket: UdpSocket,
     peer_ip: IpAddr,
@@ -190,7 +190,7 @@ pub async fn connect_to_server(
         },
     ))
 }
-// [jw] end
+// [CT] end
 
 pub async fn receive_loop(
     mut socket: UdpStreamReceiveSocket,
