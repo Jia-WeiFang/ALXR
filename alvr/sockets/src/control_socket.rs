@@ -48,12 +48,12 @@ pub struct ProtoControlSocket {
 //     Server,
 // }
 
-// [jw] begin
+// [CT] begin
 pub enum PeerType {
     AnyClient,
     Server,
 }
-// [jw] end
+// [CT] end
 
 impl ProtoControlSocket {
     // pub async fn connect_to(peer: PeerType) -> StrResult<(Self, IpAddr)> {
@@ -79,7 +79,7 @@ impl ProtoControlSocket {
     //     Ok((Self { inner: socket }, peer_ip))
     // }
 
-    // [jw] begin
+    // [CT] begin
     pub async fn connect_to(peer: PeerType) -> StrResult<(Self, IpAddr)> {
         let socket = match peer {
             PeerType::AnyClient => {
@@ -96,11 +96,11 @@ impl ProtoControlSocket {
                         Ok(n) => {
                             buf.reverse();
                             if std::str::from_utf8(&buf).is_ok() {
-                                info!("[jw]: (control socket) {}",std::str::from_utf8(&buf).unwrap()); 
+                                info!("[CT]: (control socket) {}",std::str::from_utf8(&buf).unwrap()); 
                                 
                             }
                             else {
-                                info!("[jw]:  Receive {}", n);
+                                info!("[CT]:  Receive {}", n);
                             }
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
@@ -143,7 +143,7 @@ impl ProtoControlSocket {
                                 
                             }
                             else {
-                                // info!("[jw]:  Receive {}", n);
+                                // info!("[CT]:  Receive {}", n);
                             }
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
@@ -153,7 +153,7 @@ impl ProtoControlSocket {
                 socket
             }
         };
-        // [jw] end
+        // [CT] end
 
         trace_err!(socket.set_nodelay(true))?;
         let peer_ip = trace_err!(socket.peer_addr())?.ip();

@@ -63,7 +63,7 @@ pub async fn accept_from_client(
     if client_address.ip() != client_ip {
         return fmt_e!("Connected to wrong server: {client_address} != {client_ip}");
     }
-    
+
     let socket = Framed::new(socket, Ldc::new());
     let (send_socket, receive_socket) = socket.split();
 
@@ -81,7 +81,7 @@ pub async fn connect_to_server(
 
     Ok((Arc::new(Mutex::new(send_socket)), receive_socket))
 }
-// [jw] end
+// [CT] end
 
 pub async fn receive_loop(
     mut socket: TcpStreamReceiveSocket,

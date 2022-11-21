@@ -153,7 +153,7 @@ pub async fn accept_from_server(
     ))
 }
 
-// [jw] begin
+// [CT] begin
 pub async fn connect_to_server(
     server_ip: IpAddr,
     port: u16,
@@ -215,10 +215,10 @@ pub async fn accept_from_client(
     // let buf = &mut buf[..number_of_bytes];
     // buf.reverse();
     // if std::str::from_utf8(&buf).is_ok() {
-    //     info!("[jw]: {}",std::str::from_utf8(&buf).unwrap()); 
+    //     info!("[CT]: {}",std::str::from_utf8(&buf).unwrap()); 
     // }
     // else {
-    //     info!("[jw]: Receive {}", number_of_bytes);
+    //     info!("[CT]: Receive {}", number_of_bytes);
     // }
 
     trace_err!(socket.connect(client_addr).await)?;
@@ -248,7 +248,7 @@ pub async fn accept_from_client(
         },
     ))
 }
-// [jw] end
+// [CT] end
 
 pub async fn receive_loop(
     mut socket: ThrottledUdpStreamReceiveSocket,
