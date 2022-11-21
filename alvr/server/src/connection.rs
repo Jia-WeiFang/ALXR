@@ -522,7 +522,7 @@ impl Drop for StreamCloseGuard {
 }
 
 async fn connection_pipeline() -> StrResult {
-    info!("[jw] Connection pipeline start.");
+    info!("[CT] Connection pipeline start.");
     let mut trusted_discovered_client_id = None;
     let connection_info = loop {
         // let client_discovery_config = SESSION_MANAGER
@@ -554,12 +554,12 @@ async fn connection_pipeline() -> StrResult {
         //         })
         //     };
 
-        // [jw] begin
+        // [CT] begin
         let try_connection_future: BoxFuture<Either<StrResult<ClientId>, _>> =
             Box::pin(async {
                 Either::Right(client_handshake().await)
             });
-        // [jw] end
+        // [CT] end
 
         tokio::select! {
             res = try_connection_future => {
@@ -626,7 +626,7 @@ async fn connection_pipeline() -> StrResult {
     // };
     // let stream_socket = Arc::new(stream_socket);
 
-    // [jw] begin
+    // [CT] begin
     let settings = SESSION_MANAGER.lock().get().to_settings();
 
     control_sender
@@ -663,7 +663,7 @@ async fn connection_pipeline() -> StrResult {
     }
 
     let stream_socket = Arc::new(stream_socket);
-    // [jw] end
+    // [CT] end
 
     alvr_session::log_event(ServerEvent::ClientConnected);
 
