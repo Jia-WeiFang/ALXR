@@ -21,10 +21,10 @@
 #include <map>
 #include <optional>
 
-// [jw] begin
+// [kyl] begin
 #include "alvr_server.h"
 bool clientShutDown = false;
-// [jw] end
+// [kyl] end
 
 // [SM] begin
 #include "platform/win32/FFR.h"
