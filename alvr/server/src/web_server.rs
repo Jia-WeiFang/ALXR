@@ -255,7 +255,7 @@ async fn http_api(
             if let Ok(data) = from_request_body::<json::Value>(request).await {
                 let captureTriggerValue = data.get("captureTrigger").unwrap().as_bool().unwrap();
                 unsafe {crate::captureTrigger(captureTriggerValue);}
-                info!("start capturing");
+                info!("[YuanChun] start capturing");
                 reply(StatusCode::OK)?
             }
             else {

@@ -58,6 +58,16 @@ struct TrackingInfo {
         unsigned int handFingerConfidences;
     } controller[2];
 };
+
+// [jw] eyeinfo begin
+struct GazePos
+{
+    unsigned long long timestamp;
+    float gaze_x;
+    float gaze_y;
+};
+// [jw] end
+
 // Client >----(mode 0)----> Server
 // Client <----(mode 1)----< Server
 // Client >----(mode 2)----> Server
@@ -174,6 +184,9 @@ extern "C" void RequestIDR();
 extern "C" void SetChaperone(float areaWidth, float areaHeight);
 extern "C" void InputReceive(TrackingInfo data);
 extern "C" void TimeSyncReceive(TimeSync data);
+// [jw] eyeinfo begin
+extern "C" void gazePosReceive(GazePos data);
+// [jw] end
 extern "C" void VideoErrorReportReceive();
 extern "C" void ShutdownSteamvr();
 
@@ -186,9 +199,7 @@ extern "C" void ClientDisconnect();
 // [kyl] end
 
 // [YuanChun] begin
-extern "C" void captureTrigger(
-    bool captureTriggerValue
-);
+extern "C" void captureTrigger(bool captureTriggerValue);
 // [YuanChun] end
 
 // [SM] begin

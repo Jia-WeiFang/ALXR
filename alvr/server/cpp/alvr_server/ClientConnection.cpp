@@ -220,19 +220,19 @@ void ClientConnection::ProcessTimeSync(TimeSync data) {
 		};
 
 		// Continously send statistics info for updating graphs
-		Info("#{ \"id\": \"GraphStatistics\", \"data\": [%llu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f] }#\n",
-			Current / 1000,                                                //time
-			sendBuf.serverTotalLatency / 1000.0,                           //totalLatency
-			m_reportedStatistics.averageSendLatency / 1000.0,              //receiveLatency
-			renderTime,                                                    //renderTime
-			idleTime,                                                      //idleTime
-			waitTime,                                                      //waitTime
-			(double)(m_Statistics->GetEncodeLatencyAverage()) / US_TO_MS,  //encodeLatency
-			m_reportedStatistics.averageTransportLatency / 1000.0,         //sendLatency
-			m_reportedStatistics.averageDecodeLatency / 1000.0,            //decodeLatency
-			m_reportedStatistics.idleTime / 1000.0,                        //clientIdleTime
-			m_reportedStatistics.fps,                                      //clientFPS
-			m_Statistics->GetFPS());                                       //serverFPS
+		// Info("#{ \"id\": \"GraphStatistics\", \"data\": [%llu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f] }#\n",
+		// 	Current / 1000,                                                //time
+		// 	sendBuf.serverTotalLatency / 1000.0,                           //totalLatency
+		// 	m_reportedStatistics.averageSendLatency / 1000.0,              //receiveLatency
+		// 	renderTime,                                                    //renderTime
+		// 	idleTime,                                                      //idleTime
+		// 	waitTime,                                                      //waitTime
+		// 	(double)(m_Statistics->GetEncodeLatencyAverage()) / US_TO_MS,  //encodeLatency
+		// 	m_reportedStatistics.averageTransportLatency / 1000.0,         //sendLatency
+		// 	m_reportedStatistics.averageDecodeLatency / 1000.0,            //decodeLatency
+		// 	m_reportedStatistics.idleTime / 1000.0,                        //clientIdleTime
+		// 	m_reportedStatistics.fps,                                      //clientFPS
+		// 	m_Statistics->GetFPS());                                       //serverFPS
 
 	}
 	else if (timeSync->mode == 2) {

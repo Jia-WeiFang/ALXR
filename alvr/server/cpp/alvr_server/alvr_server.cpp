@@ -26,9 +26,9 @@
 bool clientShutDown = false;
 // [kyl] end
 
-// [SM] begin
-#include "platform/win32/FFR.h"
-// [SM] end
+// [jw] eyeinfo begin
+FFRData ffrData_cur;
+// [jw] end
 
 static void load_debug_privilege(void) {
 #ifdef _WIN32
@@ -213,6 +213,10 @@ void InitializeStreaming() {
     if (g_driver_provider.hmd) {
         g_driver_provider.hmd->StartStreaming();
     }
+
+    // [jw] eyeinfo begin
+    ffrData_cur = FfrDataFromSettings();
+    // [jw] end
 }
 
 void DeinitializeStreaming() {
@@ -309,11 +313,25 @@ void ffrUpdate(
     float centerShiftX, float centerShiftY,
     float edgeRatioX, float edgeRatioY
 ){
-    FFRData ffrData = {};
+    // FFRData ffrData = {};
     /* eyeWidth and eyeHeight are invalid here */
-    ffrData.centerSizeX = centerSizeX, ffrData.centerSizeY = centerSizeY;
-    ffrData.centerShiftX = centerShiftX, ffrData.centerShiftY = centerShiftY;
-    ffrData.edgeRatioX = edgeRatioX, ffrData.edgeRatioY = edgeRatioY,
-    g_driver_provider.hmd->m_encoder->ffrUpdate(ffrData);
+    ffrData_cur.centerSizeX = centerSizeX;
+    ffrData_cur.centerSizeY = centerSizeY;
+    ffrData_cur.centerShiftX = centerShiftX;
+    ffrData_cur.centerShiftY = centerShiftY;
+    ffrData_cur.edgeRatioX = edgeRatioX;
+    ffrData_cur.edgeRatioY = edgeRatioY;
+    g_driver_provider.hmd->m_encoder->ffrUpdate(ffrData_cur);
 }
 // [SM] end
+
+// [jw] eyeinfo begin
+void gazePosReceive(GazePos data)
+{
+    Info("[jw] timestamp: %llu, gaze_x: %f, gaze_y: %f", data.timestamp, data.gaze_x, data.gaze_y);
+
+    ffrUpdate(ffrData_cur.centerSizeX, ffrData_cur.centerSizeY,
+              ffrData_cur.centerShiftX, ffrData_cur.centerShiftY,
+              ffrData_cur.edgeRatioX, ffrData_cur.edgeRatioY);
+}
+// [jw] end

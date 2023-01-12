@@ -1,8 +1,8 @@
 use crate::{
     connection_utils::{self, ConnectionError},
     ALXRTrackingSpace_StageRefSpace, TimeSync, VideoFrame, APP_CONFIG, BATTERY_SENDER,
-    INPUT_SENDER, TIME_SYNC_SENDER, VIDEO_ERROR_REPORT_SENDER, VIEWS_CONFIG_SENDER,
-};
+    INPUT_SENDER, TIME_SYNC_SENDER, GAZE_POS_SENDER, VIDEO_ERROR_REPORT_SENDER, VIEWS_CONFIG_SENDER,
+}; // [jw] eyeinfo GAZE_POS_SENDER
 use alvr_common::{prelude::*, ALVR_NAME, ALVR_VERSION};
 use alvr_session::SessionDesc;
 #[cfg(target_os = "android")]
@@ -449,6 +449,27 @@ async fn connection_pipeline(
         }
     };
 
+    // [jw] eyeinfo begin
+    let gaze_pos_send_loop = {
+        let control_sender = Arc::clone(&control_sender);
+        async move {
+            let (data_sender, mut data_receiver) = tmpsc::unbounded_channel();
+            *GAZE_POS_SENDER.lock() = Some(data_sender);
+
+            while let Some(gaze_pos) = data_receiver.recv().await {
+                control_sender
+                    .lock()
+                    .await
+                    .send(&ClientControlPacket::GazePos(gaze_pos))
+                    .await
+                    .ok();
+            }
+
+            Ok(())
+        }
+    };
+    // [jw] end
+
     let video_error_report_send_loop = {
         let control_sender = Arc::clone(&control_sender);
         async move {
@@ -829,6 +850,9 @@ async fn connection_pipeline(
         res = spawn_cancelable(playspace_sync_loop) => res,
         res = spawn_cancelable(input_send_loop) => res,
         res = spawn_cancelable(time_sync_send_loop) => res,
+        // [jw] eyeinfo begin
+        res = spawn_cancelable(gaze_pos_send_loop) => res,
+        // [jw] end
         res = spawn_cancelable(video_error_report_send_loop) => res,
         res = spawn_cancelable(views_config_send_loop) => res,
         res = spawn_cancelable(battery_send_loop) => res,

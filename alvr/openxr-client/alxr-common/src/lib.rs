@@ -8,8 +8,8 @@ use alvr_common::{prelude::*, ALVR_VERSION, HEAD_ID, LEFT_HAND_ID, RIGHT_HAND_ID
 use alvr_session::Fov;
 use alvr_sockets::{
     BatteryPacket, HeadsetInfoPacket, Input, LegacyController, LegacyInput, MotionData,
-    TimeSyncPacket, ViewsConfig,
-};
+    TimeSyncPacket, GazePosPacket, ViewsConfig,
+}; // [jw] eyeinfo GazePosPacket
 pub use alxr_engine_sys::*;
 use lazy_static::lazy_static;
 use local_ipaddress;
@@ -221,6 +221,10 @@ lazy_static! {
         Mutex::new(None);
     static ref TIME_SYNC_SENDER: Mutex<Option<mpsc::UnboundedSender<TimeSyncPacket>>> =
         Mutex::new(None);
+    // [jw] eyeinfo begin
+    static ref GAZE_POS_SENDER: Mutex<Option<mpsc::UnboundedSender<GazePosPacket>>> =
+        Mutex::new(None);
+    // [jw] end
     static ref VIDEO_ERROR_REPORT_SENDER: Mutex<Option<mpsc::UnboundedSender<()>>> =
         Mutex::new(None);
     pub static ref ON_PAUSE_NOTIFIER: Notify = Notify::new();
@@ -519,6 +523,20 @@ pub extern "C" fn time_sync_send(data_ptr: *const TimeSync) {
         sender.send(time_sync).ok();
     }
 }
+
+// [jw] eyeinfo begin
+pub extern "C" fn gaze_pos_send(timestamp: u64, gaze_x: f32, gaze_y: f32) 
+{
+    if let Some(sender) = &*GAZE_POS_SENDER.lock() {
+        let gaze_pos = GazePosPacket {
+            timestamp: timestamp,
+            gaze_x: gaze_x,
+            gaze_y: gaze_y,
+        };
+        sender.send(gaze_pos).ok();
+    }
+}
+// [jw] end
 
 pub extern "C" fn video_error_report_send() {
     if let Some(sender) = &*VIDEO_ERROR_REPORT_SENDER.lock() {

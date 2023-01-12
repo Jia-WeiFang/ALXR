@@ -103,7 +103,7 @@ min_sdk_version = 28 # for offical low-latency medicodec mode to be enabled, min
 # Adds extra arbitrary XML attributes to the <application> tag in the manifest.
 # See https://developer.android.com/guide/topics/manifest/application-element.html
 [package.metadata.android.application_attributes]
-"android:debuggable" = "false"
+"android:debuggable" = "true"
 "android:allowBackup" = "false"
 
 # Adds extra arbitrary XML attributes to the <activity> tag in the manifest.

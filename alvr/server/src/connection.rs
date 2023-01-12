@@ -1,5 +1,5 @@
 use crate::{
-    connection_utils, ClientListAction, EyeFov, TimeSync, TrackingInfo, TrackingInfo_Controller,
+    connection_utils, ClientListAction, EyeFov, TimeSync, GazePos, TrackingInfo, TrackingInfo_Controller,
     TrackingInfo_Controller__bindgen_ty_1, TrackingQuat, TrackingVector3, CLIENTS_UPDATED_NOTIFIER,
     HAPTICS_SENDER, RESTART_NOTIFIER, SESSION_MANAGER, TIME_SYNC_SENDER, VIDEO_SENDER, FFR_RECONFIG_SENDER,
 };
@@ -1081,6 +1081,17 @@ async fn connection_pipeline() -> StrResult {
 
                     unsafe { crate::TimeSyncReceive(time_sync) };
                 }
+                // [jw] eyeinfo begin
+                Ok(ClientControlPacket::GazePos(data)) => {
+                    let gaze_pos = GazePos {
+                        timestamp: data.timestamp,
+                        gaze_x: data.gaze_x,
+                        gaze_y: data.gaze_y,
+                    };
+                    info!("[jw] timestamp: {}, gaze_x: {}, gaze_y: {}", gaze_pos.timestamp, gaze_pos.gaze_x, gaze_pos.gaze_y);
+                    unsafe { crate::gazePosReceive(gaze_pos) };
+                }
+                // [jw] end
                 Ok(ClientControlPacket::VideoErrorReport) => unsafe {
                     crate::VideoErrorReportReceive()
                 },

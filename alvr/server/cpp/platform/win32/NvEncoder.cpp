@@ -151,8 +151,14 @@ void NvEncoder::CreateDefaultEncoderParams(NV_ENC_INITIALIZE_PARAMS* pIntializeP
     pIntializeParams->enablePTD = 1;
     pIntializeParams->reportSliceOffsets = 0;
     pIntializeParams->enableSubFrameWrite = 0;
-    pIntializeParams->maxEncodeWidth = m_nWidth;
-    pIntializeParams->maxEncodeHeight = m_nHeight;
+    // pIntializeParams->maxEncodeWidth = m_nWidth;
+    // pIntializeParams->maxEncodeHeight = m_nHeight;
+
+    // [SM] begin
+    pIntializeParams->maxEncodeWidth = m_nMaxEncodeWidth;
+    pIntializeParams->maxEncodeHeight = m_nMaxEncodeHeight;
+    // [SM] end
+
     pIntializeParams->enableMEOnlyMode = m_bMotionEstimationOnly;
 #if defined(_WIN32)
     pIntializeParams->enableEncodeAsync = true;

@@ -8,9 +8,15 @@ extern uint64_t g_DriverTestMode;
 
 using namespace d3d_render_utils;
 
+// [jw] begin
+using namespace DirectX;
+// [jw] end
 
-FrameRender::FrameRender(std::shared_ptr<CD3DRender> pD3DRender)
+FrameRender::FrameRender(std::shared_ptr<CD3DRender> pD3DRender, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp, std::vector<ID3D11Texture2D*> qrcodeTex)
 	: m_pD3DRender(pD3DRender)
+	, frames_vec_ptr(frames_vec)
+	, timeStamp_ptr(timeStamp)
+	, qrcodeTex_ptr(qrcodeTex)
 {
 		FrameRender::SetGpuPriority(m_pD3DRender->GetDevice());
 }
@@ -25,6 +31,13 @@ bool FrameRender::Startup(FFRData ffrData)
 	if (m_pStagingTexture) {
 		return true;
 	}
+
+	// [jw] begin
+	if (m_pStagingTexture_noFFR)
+	{
+		return true;
+	}
+	// [jw] end
 
 	//
 	// Create staging texture
@@ -269,6 +282,9 @@ bool FrameRender::Startup(FFRData ffrData)
 	}
 
 	m_pStagingTexture = compositionTexture;
+	// [jw] begin
+	m_pStagingTexture_noFFR = compositionTexture;
+	// [jw] end
 
 	std::vector<uint8_t> quadShaderCSO(QUAD_SHADER_CSO_PTR, QUAD_SHADER_CSO_PTR + QUAD_SHADER_CSO_LEN);
 	ComPtr<ID3D11VertexShader> quadVertexShader = CreateVertexShader(m_pD3DRender->GetDevice(), quadShaderCSO);
@@ -300,6 +316,12 @@ bool FrameRender::Startup(FFRData ffrData)
 		m_colorCorrectionPipeline = std::make_unique<RenderPipeline>(m_pD3DRender->GetDevice());
 		m_colorCorrectionPipeline->Initialize({ m_pStagingTexture.Get() }, quadVertexShader.Get(), colorCorrectionShaderCSO,
 											  colorCorrectedTexture.Get(), colorCorrectionBuffer.Get());
+
+		// [jw] begin
+		m_colorCorrectionPipeline->Initialize({ m_pStagingTexture_noFFR.Get() }, quadVertexShader.Get(), colorCorrectionShaderCSO,
+										colorCorrectedTexture.Get(), colorCorrectionBuffer.Get());
+		m_pStagingTexture_noFFR = colorCorrectedTexture;
+		// [jw] end
 
 		m_pStagingTexture = colorCorrectedTexture;
 	}
@@ -366,6 +388,42 @@ bool FrameRender::RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBound
 			continue;
 		}
 
+		// [jw] begin
+		// Info("[jw] captureTriggerValue: %d\n", captureTriggerValue);
+		if (!clientShutDown && captureTriggerValue) {
+			Info("[jw] FrameRender pasting QRcode");
+			D3D11_BOX box;
+			box.left = 0, box.right = 64;
+			box.top = 0,  box.bottom = 64;
+			box.front = 0, box.back = 1;
+			m_pD3DRender->GetContext()->CopySubresourceRegion(
+				textures[1], 0,
+				viewport.Width/10, viewport.Height/5, 0,
+				qrcodeTex_ptr[qrcode_cnt%1000], 0, &box
+			);
+
+			ID3D11Texture2D *bufferTexture;
+			ScratchImage img;
+			HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), m_pStagingTexture_noFFR.Get(), img);
+			if (FAILED(hr)) {
+				Info("[kyl] copy texture fail");	
+			}
+			else {
+				hr = CreateTexture(m_pD3DRender->GetDevice(), img.GetImages(), img.GetImageCount(), img.GetMetadata(), (ID3D11Resource**)(&bufferTexture));
+				if (FAILED(hr)) {
+					Info("[kyl] create buffer texture fail");	
+				}
+				else {
+					lock.lock();
+					(*frames_vec_ptr).push_back(bufferTexture); // save frames for capture
+					(*timeStamp_ptr).push_back(qrcode_cnt); // save qrcode index
+					qrcode_cnt += 1;
+					lock.unlock();
+				}
+			}
+		}
+		// [jw] end
+
 		D3D11_TEXTURE2D_DESC srcDesc;
 		textures[0]->GetDesc(&srcDesc);
 
@@ -410,14 +468,14 @@ bool FrameRender::RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBound
 		{
 			// Left View
 			{ DirectX::XMFLOAT3(-1.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMin, bound[0].vMax), 0 },
-		{ DirectX::XMFLOAT3(0.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMax, bound[0].vMin), 0 },
-		{ DirectX::XMFLOAT3(0.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMax, bound[0].vMax), 0 },
-		{ DirectX::XMFLOAT3(-1.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMin, bound[0].vMin), 0 },
-		// Right View
-		{ DirectX::XMFLOAT3(0.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMin, bound[1].vMax), 1 },
-		{ DirectX::XMFLOAT3(1.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMax, bound[1].vMin), 1 },
-		{ DirectX::XMFLOAT3(1.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMax, bound[1].vMax), 1 },
-		{ DirectX::XMFLOAT3(0.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMin, bound[1].vMin), 1 },
+			{ DirectX::XMFLOAT3(0.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMax, bound[0].vMin), 0 },
+			{ DirectX::XMFLOAT3(0.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMax, bound[0].vMax), 0 },
+			{ DirectX::XMFLOAT3(-1.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[0].uMin, bound[0].vMin), 0 },
+			// Right View
+			{ DirectX::XMFLOAT3(0.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMin, bound[1].vMax), 1 },
+			{ DirectX::XMFLOAT3(1.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMax, bound[1].vMin), 1 },
+			{ DirectX::XMFLOAT3(1.0f, -1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMax, bound[1].vMax), 1 },
+			{ DirectX::XMFLOAT3(0.0f,  1.0f, 0.5f), DirectX::XMFLOAT2(bound[1].uMin, bound[1].vMin), 1 },
 		};
 
 		// TODO: Which is better? UpdateSubresource or Map

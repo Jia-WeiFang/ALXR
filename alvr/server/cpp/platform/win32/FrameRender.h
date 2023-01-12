@@ -19,6 +19,13 @@
 #include "openvr_driver.h"
 #include "FFR.h"
 
+// [jw] begin
+#include "alvr_server/alvr_server.h"
+#include "DirectXTex/DirectXTexP.h"
+#include "DirectXTex/DirectXTex.h"
+#include "mutex.h"
+// [jw] end
+
 #define GPU_PRIORITY_VAL 7
 
 using Microsoft::WRL::ComPtr;
@@ -43,7 +50,7 @@ public:
 class FrameRender
 {
 public:
-	FrameRender(std::shared_ptr<CD3DRender> pD3DRender);
+	FrameRender(std::shared_ptr<CD3DRender> pD3DRender, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp, std::vector<ID3D11Texture2D*> qrcodeTex);
 	virtual ~FrameRender();
 
 	bool Startup(FFRData ffrData);
@@ -51,9 +58,21 @@ public:
 	void GetEncodingResolution(uint32_t *width, uint32_t *height);
 
 	ComPtr<ID3D11Texture2D> GetTexture();
+
+	// [jw] begin
+	std::vector<ID3D11Texture2D*> *frames_vec_ptr;
+	std::vector<uint64_t> *timeStamp_ptr;
+	std::vector<ID3D11Texture2D*> qrcodeTex_ptr;
+	int qrcode_cnt = 0;
+	// [jw] end
+
 private:
 	std::shared_ptr<CD3DRender> m_pD3DRender;
 	ComPtr<ID3D11Texture2D> m_pStagingTexture;
+
+	// [jw] begin
+	ComPtr<ID3D11Texture2D> m_pStagingTexture_noFFR;
+	// [jw] end
 
 	ComPtr<ID3D11VertexShader> m_pVertexShader;
 	ComPtr<ID3D11PixelShader> m_pPixelShader;

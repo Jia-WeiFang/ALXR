@@ -86,7 +86,7 @@ impl ProtoControlSocket {
                 let listener = trace_err!(TcpListener::bind((LOCAL_IP, CONTROL_PORT)).await)?;
                 let (socket, _) = trace_err!(listener.accept().await)?;
                 let mut buf = [0u8; 1500];
-                let hello = String::from("LSMN YPPAH [tekcos lortnoc]");
+                let hello = String::from("LSMN YPPAH");
                 let mut wbuf = [0u8; 1500];
                 let wbuf = hello.as_bytes();
                 loop{
@@ -120,7 +120,7 @@ impl ProtoControlSocket {
             }
             PeerType::Server => {
                 let socket = trace_err!(TcpStream::connect("140.114.79.75:9943").await)?;
-                let hello = String::from("LSMN YPPAH [tekcos lortnoc]");
+                let hello = String::from("LSMN YPPAH");
                 let mut wbuf = [0u8; 1500];
                 let wbuf = hello.as_bytes();
                 let mut buf = [0u8; 1500];

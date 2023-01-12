@@ -13,6 +13,9 @@
 #include "DirectXTex/DirectXTexP.h"
 #include "DirectXTex/DirectXTex.h"
 // [kyl] end
+// [jw] begin
+#include "alvr_server/alvr_server.h"
+// [jw] end
 #include "alvr_server/ClientConnection.h"
 #include "alvr_server/Utils.h"
 #include "FrameRender.h"
@@ -65,7 +68,8 @@
 		// [kyl] begin
 		std::vector<ID3D11Texture2D*> *frames_vec_ptr;
 		std::vector<uint64_t> *timeStamp_ptr;
-		std::vector<ID3D11Texture2D*> qrcodeTex;
+		std::vector<ID3D11Texture2D*> qrcodeTex_big;
+		std::vector<ID3D11Texture2D*> qrcodeTex_small;
 		// [kyl] end
 
 	private:

@@ -112,10 +112,22 @@ pub enum ClientControlPacket {
     ViewsConfig(ViewsConfig),
     Battery(BatteryPacket),
     TimeSync(TimeSyncPacket), // legacy
+    // [jw] eyeinfo begin
+    GazePos(GazePosPacket),
+    // [jw] end
     VideoErrorReport,         // legacy
     Reserved(String),
     ReservedBuffer(Vec<u8>),
 }
+
+// [jw] eyeinfo begin
+#[derive(Serialize, Deserialize, Default)]
+pub struct GazePosPacket {
+    pub timestamp: u64,
+    pub gaze_x: f32,
+    pub gaze_y: f32,
+}
+// [jw] end
 
 // legacy video packet
 #[derive(Serialize, Deserialize, Clone)]

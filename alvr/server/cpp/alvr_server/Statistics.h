@@ -106,6 +106,7 @@ public:
 		return m_sendLatency;
 	}
 
+	// [jw] change bitrate
 	bool CheckBitrateUpdated() {
 		if (m_enableAdaptiveBitrate) {
 			uint64_t latencyUs = m_sendLatency;

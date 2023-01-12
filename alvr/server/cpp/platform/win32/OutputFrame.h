@@ -24,6 +24,7 @@
 
 // [kyl] begin
 #include "alvr_server/alvr_server.h"
+#include "mutex.h"
 // [kyl] end
 
 

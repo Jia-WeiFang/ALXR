@@ -3,9 +3,9 @@
 use alxr_common::{
     alxr_destroy, alxr_init, alxr_is_session_running, alxr_process_frame, battery_send,
     init_connections, input_send, path_string_to_hash, request_idr, set_waiting_next_idr, shutdown,
-    time_sync_send, video_error_report_send, views_config_send, ALXRColorSpace, ALXRDecoderType,
+    time_sync_send, gaze_pos_send, video_error_report_send, views_config_send, ALXRColorSpace, ALXRDecoderType,
     ALXRGraphicsApi, ALXRRustCtx, ALXRSystemProperties, APP_CONFIG,
-};
+}; // [jw] eyeinfo gaze_pos_send
 use std::{thread, time};
 
 // http://developer.download.nvidia.com/devzone/devcenter/gamegraphics/files/OptimusRenderingPolicies.pdf
@@ -46,6 +46,9 @@ fn main() {
                 viewsConfigSend: Some(views_config_send),
                 pathStringToHash: Some(path_string_to_hash),
                 timeSyncSend: Some(time_sync_send),
+                // [jw] eyeinfo begin
+                gazePosSend: Some(gaze_pos_send),
+                // [jw] end
                 videoErrorReportSend: Some(video_error_report_send),
                 batterySend: Some(battery_send),
                 setWaitingNextIDR: Some(set_waiting_next_idr),

@@ -1,6 +1,9 @@
 // [kyl] begin
 #include <string>
 #include <stdio.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 // [kyl] end
 #include <d3d11.h>
 
@@ -15,6 +18,7 @@
 
 // [kyl] begin
 using namespace DirectX;
+// using namespace std;
 #include "alvr_server/alvr_server.h"
 #include "alvr_server/bindings.h"
 bool captureTriggerValue = false;
@@ -24,6 +28,9 @@ void captureTrigger(
 	captureTriggerValue = !captureTriggerValue;
 }
 // [kyl] end
+// [jw] begin
+std::ofstream outfile;
+// [jw] end
 
 VideoEncoderNVENC::VideoEncoderNVENC(std::shared_ptr<CD3DRender> pD3DRender
 	, std::shared_ptr<ClientConnection> listener
@@ -84,6 +91,15 @@ void VideoEncoderNVENC::Initialize()
 		throw MakeException("NvEnc CreateEncoder failed. Code=%d %hs", e.getErrorCode(), e.what());
 	}
 
+	// [jw] begin
+	outfile.open("foveatedParams.csv", std::ios::out);
+	outfile << "targetTimestampNs" << "," << "qrcode_cnt" << ","
+			<< "centerSizeX" << "," << "centerSizeY" << ","
+			<< "centerShiftX" << "," << "centerShiftY" << ","
+			<< "edgeRatioX" << "," << "edgeRatioY" << std::endl;
+	outfile.close();
+	// [jw] end
+
 	// [kyl] begin
 	if(remove("encodeVideo.264") != 0)
 		Info("Error deleting H264 file");
@@ -128,6 +144,7 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 			NV_ENC_INITIALIZE_PARAMS initializeParams = { NV_ENC_INITIALIZE_PARAMS_VER };
 			NV_ENC_CONFIG encodeConfig = { NV_ENC_CONFIG_VER };
 			initializeParams.encodeConfig = &encodeConfig;
+			// [jw] change refresh rate, resolution
 			FillEncodeConfig(initializeParams, m_refreshRate, encodeWidth, encodeHeight, m_bitrateInMBits * 1'000'000);
 
 			NV_ENC_RECONFIGURE_PARAMS reconfigureParams = { NV_ENC_RECONFIGURE_PARAMS_VER };
@@ -153,6 +170,9 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 	ID3D11Texture2D *pInputTexture = reinterpret_cast<ID3D11Texture2D*>(encoderInputFrame->inputPtr);
 	// m_pD3DRender->GetContext()->CopyResource(pInputTexture, pTexture);
 
+	// [SM] begin
+	// Info("[jw] Width: %d", encodeWidth);
+	// Info("[jw] Height: %d", encodeHeight);
 	D3D11_BOX box;
 	box.left = 0, box.right = encodeWidth;
 	box.top = 0,  box.bottom = encodeHeight;
@@ -162,71 +182,61 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 		0, 0, 0,
 		pTexture, 0, &box
 	);
-	// #ifdef ALVR_FFR_DEBUG
-	// 	if(ffrChange && Settings::Instance().m_logToDisk) {
-	// 		HRESULT hr;
-	// 		DirectX::ScratchImage scrImg;
-	// 		hr = DirectX::CaptureTexture(
-	// 			m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(),
-	// 			pInputTexture, scrImg
-	// 		);
-	// 		if(FAILED(hr)) {
-	// 			Info("[Cap] capture texture failed\n");
-	// 		}
-	// 		hr = DirectX::SaveToWICFile(
-	// 			scrImg.GetImages(), scrImg.GetImageCount(), 
-	// 			DirectX::WIC_FLAGS::WIC_FLAGS_NONE, GUID_ContainerFormatJpeg,
-	// 			L"" FFR_DEBUG_IMG_PATH_ENCODER
-	// 		);
-
-	// 		hr = DirectX::CaptureTexture(
-	// 			m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(),
-	// 			pTexture, scrImg
-	// 		);
-	// 		if(FAILED(hr)) {
-	// 			Info("[Cap] capture texture failed\n");
-	// 		}
-	// 		hr = DirectX::SaveToWICFile(
-	// 			scrImg.GetImages(), scrImg.GetImageCount(), 
-	// 			DirectX::WIC_FLAGS::WIC_FLAGS_NONE, GUID_ContainerFormatJpeg,
-	// 			L"" FFR_DEBUG_IMG_PATH_SHADER
-	// 		);
-	// 	}
-	// #endif
+	// [SM] end
 
 	// [kyl] begin
 	if (!clientShutDown && captureTriggerValue) {
-		D3D11_BOX box;
-		box.left = 0, box.right = 128;
-		box.top = 0,  box.bottom = 128;
+		box.left = 0, box.right = 32;
+		box.top = 0,  box.bottom = 32;
 		box.front = 0, box.back = 1;
 		m_pD3DRender->GetContext()->CopySubresourceRegion(
 			pInputTexture, 0,
-			m_renderWidth/20, m_renderHeight/10, 0,
+			m_renderWidth/3, m_renderHeight/5, 0,
 			qrcodeTex_ptr[qrcode_cnt%1000], 0, &box
 		);
-
-		ID3D11Texture2D *bufferTexture;
-		ScratchImage img;
-		HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), pInputTexture, img);
-		if (FAILED(hr)) {
-			Info("copy texture fail");	
-		}
-		else {
-			hr = CreateTexture(m_pD3DRender->GetDevice(), img.GetImages(), img.GetImageCount(), img.GetMetadata(), (ID3D11Resource**)(&bufferTexture));
-			if (FAILED(hr)) {
-				Info("create buffer texture fail");	
-			}
-			else {
-				lock.lock();
-				(*frames_vec_ptr).push_back(bufferTexture); // save frames for capture
-				(*timeStamp_ptr).push_back(qrcode_cnt); // save qrcode index
-				qrcode_cnt += 1;
-				lock.unlock();
-			}
-		}
+		qrcode_cnt += 1;
 	}
+
+		// m_pD3DRender->GetContext()->CopySubresourceRegion(
+		// 	pInputTexture, 0,
+		// 	m_renderWidth/20, m_renderHeight*8/10, 0,
+		// 	qrcodeTex_ptr[qrcode_round%1000], 0, &box
+		// );
+		// if (qrcode_cnt % 1000 == 0)
+		// 	qrcode_round += 1;
+
+	// 	ID3D11Texture2D *bufferTexture;
+	// 	ScratchImage img;
+	// 	HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), pInputTexture, img);
+	// 	if (FAILED(hr)) {
+	// 		Info("copy texture fail");	
+	// 	}
+	// 	else {
+	// 		hr = CreateTexture(m_pD3DRender->GetDevice(), img.GetImages(), img.GetImageCount(), img.GetMetadata(), (ID3D11Resource**)(&bufferTexture));
+	// 		if (FAILED(hr)) {
+	// 			Info("create buffer texture fail");	
+	// 		}
+	// 		else {
+	// 			lock.lock();
+	// 			(*frames_vec_ptr).push_back(bufferTexture); // save frames for capture
+	// 			(*timeStamp_ptr).push_back(qrcode_cnt); // save qrcode index
+	// 			qrcode_cnt += 1;
+	// 			// if (qrcode_cnt % 1000 == 0)
+	// 			// 	qrcode_round += 1;
+	// 			lock.unlock();
+	// 		}
+	// 	}
+	// }
 	// [kyl] end
+
+	// [jw] begin 
+	outfile.open("foveatedParams.csv", std::ios::out | std::ios::app);
+	outfile << targetTimestampNs << "," << qrcode_cnt << "," 
+			<< ffrData_cur.centerSizeX << "," << ffrData_cur.centerSizeY << ","
+			<< ffrData_cur.centerShiftX << "," << ffrData_cur.centerShiftY << ","
+			<< ffrData_cur.edgeRatioX << "," << ffrData_cur.edgeRatioY << std::endl;
+	outfile.close();
+	// [jw] end
 
 	NV_ENC_PIC_PARAMS picParams = {};
 	if (insertIDR) {

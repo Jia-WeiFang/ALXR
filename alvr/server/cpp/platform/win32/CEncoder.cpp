@@ -1,5 +1,6 @@
 #include "CEncoder.h"
 
+
 // [kyl] begin
 using namespace DirectX;
 // [kyl] end
@@ -20,12 +21,59 @@ using namespace DirectX;
 			}
 		}
 
-		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp) {
+		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener, std::vector<ID3D11Texture2D*> *frames_vec, std::vector<uint64_t> *timeStamp) {			
+			// [jw] begin
+			frames_vec_ptr = frames_vec;
+			timeStamp_ptr = timeStamp;
+			// [jw] end
+
+			// [kyl] begin
+			// load qrcode
+			for (int i = 0; i < 1000; i++) {
+				wchar_t filepath[30];
+				swprintf_s(filepath, L"qrcode_resize_64/%d.png", i);
+				auto img = std::make_unique<ScratchImage>();
+				ID3D11Texture2D *tex;
+				HRESULT hr = LoadFromWICFile(filepath, WIC_FLAGS_NONE, nullptr, *img);
+				if (FAILED(hr)) {
+					Info("Load qrcode fail");
+				}
+				else {
+					hr = CreateTexture(d3dRender->GetDevice(), img->GetImages(), img->GetImageCount(), img->GetMetadata(), (ID3D11Resource**)(&tex));
+					if (FAILED(hr)) {
+						Info("create qrcode texture fail");
+					}
+					else {
+						qrcodeTex_big.push_back(tex);
+					}
+				}
+			}
+			for (int i = 0; i < 1000; i++) {
+				wchar_t filepath[30];
+				swprintf_s(filepath, L"qrcode_resize_32/%d.png", i);
+				auto img = std::make_unique<ScratchImage>();
+				ID3D11Texture2D *tex;
+				HRESULT hr = LoadFromWICFile(filepath, WIC_FLAGS_NONE, nullptr, *img);
+				if (FAILED(hr)) {
+					Info("Load qrcode fail");
+				}
+				else {
+					hr = CreateTexture(d3dRender->GetDevice(), img->GetImages(), img->GetImageCount(), img->GetMetadata(), (ID3D11Resource**)(&tex));
+					if (FAILED(hr)) {
+						Info("create qrcode texture fail");
+					}
+					else {
+						qrcodeTex_small.push_back(tex);
+					}
+				}
+			}
+			// [kyl] end
+			
 			// [SM] begin
 			m_d3dRender = d3dRender;
 
 			FFRData ffrData = FfrDataFromSettings();
-			m_FrameRender = std::make_shared<FrameRender>(d3dRender);
+			m_FrameRender = std::make_shared<FrameRender>(d3dRender, frames_vec_ptr, timeStamp_ptr, qrcodeTex_big);
 			m_FrameRender->Startup(ffrData);
 
 			uint32_t encoderWidth = Settings::Instance().m_renderWidth, encoderHeight = Settings::Instance().m_renderHeight;
@@ -40,30 +88,6 @@ using namespace DirectX;
 			// m_FrameRender->Startup();
 			// uint32_t encoderWidth, encoderHeight;
 			// m_FrameRender->GetEncodingResolution(&encoderWidth, &encoderHeight);
-
-			// [kyl] begin
-			// load qrcode
-			for (int i = 0; i < 1000; i++) {
-				wchar_t filepath[30];
-				swprintf_s(filepath, L"qrcode/%d.png", i);
-				auto img = std::make_unique<ScratchImage>();
-				ID3D11Texture2D *tex;
-				HRESULT hr = LoadFromWICFile(filepath, WIC_FLAGS_NONE, nullptr, *img);
-				if (FAILED(hr)) {
-					Info("Load qrcode fail");
-				}
-				else {
-					hr = CreateTexture(d3dRender->GetDevice(), img->GetImages(), img->GetImageCount(), img->GetMetadata(), (ID3D11Resource**)(&tex));
-					if (FAILED(hr)) {
-						Info("create qrcode texture fail");
-					}
-					else {
-						qrcodeTex.push_back(tex);
-					}
-				}
-			}
-			Info("qrcode size: %d", qrcodeTex.size());
-			// [kyl] end
 
 			Exception vceException;
 			Exception nvencException;
@@ -81,7 +105,7 @@ using namespace DirectX;
 			}
 			try {
 				Debug("Try to use VideoEncoderNVENC.\n");
-				m_videoEncoder = std::make_shared<VideoEncoderNVENC>(d3dRender, listener, encoderWidth, encoderHeight, frames_vec, timeStamp, qrcodeTex);
+				m_videoEncoder = std::make_shared<VideoEncoderNVENC>(d3dRender, listener, encoderWidth, encoderHeight, frames_vec, timeStamp, qrcodeTex_small);
 				m_videoEncoder->Initialize();
 				return;
 			}
@@ -153,7 +177,9 @@ using namespace DirectX;
 						m_ffrDataNext.centerShiftX, m_ffrDataNext.centerShiftY,
 						m_ffrDataNext.edgeRatioX, m_ffrDataNext.edgeRatioY
 					);
-					m_FrameRender = std::make_shared<FrameRender>(m_d3dRender);
+					Info("[jw] edgeRatioX: %f\n", m_ffrDataNext.edgeRatioX);
+					Info("[jw] edgeRatioY: %f\n", m_ffrDataNext.edgeRatioY);
+					m_FrameRender = std::make_shared<FrameRender>(m_d3dRender, frames_vec_ptr, timeStamp_ptr, qrcodeTex_big);
 					m_FrameRender->Startup(m_ffrDataNext);
 					m_ffrData = m_ffrDataNext;
 				}
@@ -204,6 +230,6 @@ void CEncoder::ffrUpdate(FFRData ffrData) {
 	m_lock.lock();
 	m_ffrDataNext = ffrData;
 	m_lock.unlock();
-	Info("[FFR] ffrUpdate Called\n");
+	// Info("[FFR] ffrUpdate Called\n");
 }
 // [SM] end

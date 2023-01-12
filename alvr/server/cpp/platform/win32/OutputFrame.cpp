@@ -1,4 +1,7 @@
+// [kyl] begin
 #include "OutputFrame.h"
+#include <stdio.h>
+#include <time.h>
 
 // using namespace std;
 using namespace DirectX;
@@ -14,7 +17,7 @@ std::mutex lock;
 		}
 
 		
-			OutputFrame::~OutputFrame()
+		OutputFrame::~OutputFrame()
 		{
 			if (m_videoEncoder)
 			{
@@ -34,9 +37,16 @@ std::mutex lock;
 			int now_frame = 0;
 			int round = 0;
 			int value = 0;
+			time_t starttime, endtime;
+			bool flag = false;
 			// lock.lock();
             while (!clientShutDown || !(*frames_vec_ptr).empty())
             {
+				if (!flag)
+				{
+					starttime = time(NULL);
+					flag = true;
+				}
 				// lock.unlock();
 				lock.lock();
                 if (!(*frames_vec_ptr).empty() && !(*timeStamp_ptr).empty()) {
@@ -48,7 +58,7 @@ std::mutex lock;
 					ScratchImage img;
 					HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), texture, img);
 					if (FAILED(hr)) {
-						Info("capture fail");
+						Info("[kyl] capture fail");
 						lock.unlock();
 					}
 					else {
@@ -60,7 +70,7 @@ std::mutex lock;
 						lock.unlock();
 						hr = SaveToWICFile(img.GetImages(), img.GetImageCount(), WIC_FLAGS_NONE, GUID_ContainerFormatPng, filepath, &GUID_WICPixelFormat24bppBGR);
 						if (FAILED(hr)) {
-							Info("failed to save image");
+							Info("[kyl] failed to save image");
 						}	
 					}
 					texture->Release();
@@ -71,9 +81,12 @@ std::mutex lock;
 				}
 				// lock.lock();
             }
+			endtime = time(NULL);
+			double diff = difftime(endtime, starttime);
 
-			Info("frame_count: %d.", frame_count);
-			Info("Output done.");
+			Info("[kyl] OutputFrame time: %f.", diff);
+			Info("[kyl] OutputFrame count: %d.", frame_count);
+			Info("[kyl] Output done.");
 		}
 
 		void OutputFrame::Stop()
@@ -81,3 +94,4 @@ std::mutex lock;
 			Info("stop OutputFrame thread");
 			Join();
 		}
+// [kyl] end

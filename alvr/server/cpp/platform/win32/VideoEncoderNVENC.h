@@ -35,6 +35,7 @@ public:
 	std::vector<uint64_t> *timeStamp_ptr;
 	std::vector<ID3D11Texture2D*> qrcodeTex_ptr;
 	int qrcode_cnt = 0;
+	int qrcode_round = 0;
 	// [kyl] end
 
 private:

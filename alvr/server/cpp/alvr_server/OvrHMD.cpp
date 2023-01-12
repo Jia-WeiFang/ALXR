@@ -164,15 +164,15 @@ OvrHmd::~OvrHmd() {
         m_outputframe8.reset();
     }
 
-    if (m_outputframe9) {
-        m_outputframe9->Stop();
-        m_outputframe9.reset();
-    }
+    // if (m_outputframe9) {
+    //     m_outputframe9->Stop();
+    //     m_outputframe9.reset();
+    // }
 
-    if (m_outputframe10) {
-        m_outputframe10->Stop();
-        m_outputframe10.reset();
-    }
+    // if (m_outputframe10) {
+    //     m_outputframe10->Stop();
+    //     m_outputframe10.reset();
+    // }
 
     // if (m_outputframe11) {
     //     m_outputframe11->Stop();
@@ -520,13 +520,13 @@ void OvrHmd::StartStreaming() {
         m_outputframe8->Initialize(m_D3DRender, &frames_vec, &timeStamp);
         m_outputframe8->Start();
 
-        m_outputframe9 = std::make_shared<OutputFrame>();
-        m_outputframe9->Initialize(m_D3DRender, &frames_vec, &timeStamp);
-        m_outputframe9->Start();
+        // m_outputframe9 = std::make_shared<OutputFrame>();
+        // m_outputframe9->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe9->Start();
 
-        m_outputframe10 = std::make_shared<OutputFrame>();
-        m_outputframe10->Initialize(m_D3DRender, &frames_vec, &timeStamp);
-        m_outputframe10->Start();
+        // m_outputframe10 = std::make_shared<OutputFrame>();
+        // m_outputframe10->Initialize(m_D3DRender, &frames_vec, &timeStamp);
+        // m_outputframe10->Start();
 
         // m_outputframe11 = std::make_shared<OutputFrame>();
         // m_outputframe11->Initialize(m_D3DRender, &frames_vec, &timeStamp);
