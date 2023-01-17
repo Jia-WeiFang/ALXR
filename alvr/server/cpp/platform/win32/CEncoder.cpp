@@ -169,6 +169,13 @@ using namespace DirectX;
 					);
 				}
 				
+				// [jw] begin
+				// if (m_FrameRender->GetGroundTruthTexture())
+				// {
+				// 	m_videoEncoder->saveH264(m_FrameRender->GetGroundTruthTexture().Get(), m_presentationTime, m_targetTimestampNs, m_scheduler.CheckIDRInsertion());
+				// }
+				// [jw] end
+
 				m_lock.lock();
 				if(memcmp(&m_ffrData, &m_ffrDataNext, sizeof(FFRData))) {
 					FfrReconfigSend(

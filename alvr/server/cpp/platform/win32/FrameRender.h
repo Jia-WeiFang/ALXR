@@ -60,6 +60,7 @@ public:
 	ComPtr<ID3D11Texture2D> GetTexture();
 
 	// [jw] begin
+	ComPtr<ID3D11Texture2D> GetGroundTruthTexture();
 	std::vector<ID3D11Texture2D*> *frames_vec_ptr;
 	std::vector<uint64_t> *timeStamp_ptr;
 	std::vector<ID3D11Texture2D*> qrcodeTex_ptr;

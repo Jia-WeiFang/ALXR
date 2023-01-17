@@ -30,6 +30,10 @@ public:
 	void Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR, uint32_t encodeWidth, uint32_t encodeHeight);
 	// [SM] end
 
+	// [jw] begin
+	// void saveH264(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR);
+	// [jw] end
+
 	// [kyl] begin
 	std::vector<ID3D11Texture2D*> *frames_vec_ptr;
 	std::vector<uint64_t> *timeStamp_ptr;

@@ -43,6 +43,10 @@ public:
 	void Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR, uint32_t encodeWidth, uint32_t encodeHeight);
 	// [SM] end
 
+	// [jw] begin
+	// void saveH264(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR);
+	// [jw] end
+
 	HRESULT SetupStagingTexture(ID3D11Texture2D *pTexture);
 	HRESULT CopyTexture(ID3D11Texture2D *pTexture);
 private:

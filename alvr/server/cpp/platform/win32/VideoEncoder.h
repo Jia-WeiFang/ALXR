@@ -16,4 +16,8 @@ public:
 	// [SM] begin
 	virtual void Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR, uint32_t encodeWidth, uint32_t encodeHeight) = 0;
 	// [SM] end
+
+	// [jw] begin
+	// virtual void saveH264(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR);
+	// [jw] end
 };

@@ -542,6 +542,12 @@ ComPtr<ID3D11Texture2D> FrameRender::GetTexture()
 	return m_pStagingTexture;
 }
 
+ComPtr<ID3D11Texture2D> FrameRender::GetGroundTruthTexture()
+{
+	return m_pStagingTexture_noFFR;
+}
+
+
 void FrameRender::GetEncodingResolution(uint32_t *width, uint32_t *height) {
 	if (enableFFR) {
 		m_ffr->GetOptimizedResolution(width, height);

@@ -66,7 +66,8 @@ std::mutex lock;
 						value = (int)(timeStamp%1000);
 						now_frame = frame_count;
 						frame_count++;
-						swprintf_s(filepath, L"frames/%lld_%lld.png", round, value);
+						// swprintf_s(filepath, L"frames/%lld_%lld.png", round, value);
+						swprintf_s(filepath, L"frames/%lld.png", timeStamp);
 						lock.unlock();
 						hr = SaveToWICFile(img.GetImages(), img.GetImageCount(), WIC_FLAGS_NONE, GUID_ContainerFormatPng, filepath, &GUID_WICPixelFormat24bppBGR);
 						if (FAILED(hr)) {

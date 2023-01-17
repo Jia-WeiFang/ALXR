@@ -186,12 +186,22 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 
 	// [kyl] begin
 	if (!clientShutDown && captureTriggerValue) {
+		// [jw] begin save foveated config
+		outfile.open("foveatedParams.csv", std::ios::out | std::ios::app);
+		outfile << targetTimestampNs << "," << qrcode_cnt << "," 
+			<< ffrData_cur.centerSizeX << "," << ffrData_cur.centerSizeY << ","
+			<< ffrData_cur.centerShiftX << "," << ffrData_cur.centerShiftY << ","
+			<< ffrData_cur.edgeRatioX << "," << ffrData_cur.edgeRatioY << std::endl;
+		outfile.close();
+		// [jw] end
+
+		// paste QRcode
 		box.left = 0, box.right = 32;
 		box.top = 0,  box.bottom = 32;
 		box.front = 0, box.back = 1;
 		m_pD3DRender->GetContext()->CopySubresourceRegion(
 			pInputTexture, 0,
-			m_renderWidth/3, m_renderHeight/5, 0,
+			encodeWidth*2/3, encodeHeight/2, 0,
 			qrcodeTex_ptr[qrcode_cnt%1000], 0, &box
 		);
 		qrcode_cnt += 1;
@@ -199,7 +209,7 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 
 		// m_pD3DRender->GetContext()->CopySubresourceRegion(
 		// 	pInputTexture, 0,
-		// 	m_renderWidth/20, m_renderHeight*8/10, 0,
+		// 	encodeWidth/20, encodeHeight*8/10, 0,
 		// 	qrcodeTex_ptr[qrcode_round%1000], 0, &box
 		// );
 		// if (qrcode_cnt % 1000 == 0)
@@ -230,12 +240,12 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 	// [kyl] end
 
 	// [jw] begin 
-	outfile.open("foveatedParams.csv", std::ios::out | std::ios::app);
-	outfile << targetTimestampNs << "," << qrcode_cnt << "," 
-			<< ffrData_cur.centerSizeX << "," << ffrData_cur.centerSizeY << ","
-			<< ffrData_cur.centerShiftX << "," << ffrData_cur.centerShiftY << ","
-			<< ffrData_cur.edgeRatioX << "," << ffrData_cur.edgeRatioY << std::endl;
-	outfile.close();
+	// outfile.open("foveatedParams.csv", std::ios::out | std::ios::app);
+	// outfile << targetTimestampNs << "," << qrcode_cnt << "," 
+	// 		<< ffrData_cur.centerSizeX << "," << ffrData_cur.centerSizeY << ","
+	// 		<< ffrData_cur.centerShiftX << "," << ffrData_cur.centerShiftY << ","
+	// 		<< ffrData_cur.edgeRatioX << "," << ffrData_cur.edgeRatioY << std::endl;
+	// outfile.close();
 	// [jw] end
 
 	NV_ENC_PIC_PARAMS picParams = {};
@@ -284,7 +294,7 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 }
 // [SM] end
 
-// void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR)
+// void VideoEncoderNVENC::saveH264(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR)
 // {
 // 	if (m_Listener) {
 // 		if (m_Listener->GetStatistics()->CheckBitrateUpdated()) {
@@ -301,44 +311,10 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 
 // 	std::vector<std::vector<uint8_t>> vPacket;
 
-// 	const NvEncInputFrame* encoderInputFrame = m_NvNecoder->GetNextInputFrame();
+// 	// const NvEncInputFrame* encoderInputFrame = m_NvNecoder->GetNextInputFrame();
 
-// 	ID3D11Texture2D *pInputTexture = reinterpret_cast<ID3D11Texture2D*>(encoderInputFrame->inputPtr);
+// 	ID3D11Texture2D *pInputTexture; // = reinterpret_cast<ID3D11Texture2D*>(encoderInputFrame->inputPtr);
 // 	m_pD3DRender->GetContext()->CopyResource(pInputTexture, pTexture);
-
-// 	// [kyl] begin
-// 	if (!clientShutDown && captureTriggerValue) {
-// 		D3D11_BOX box;
-// 		box.left = 0, box.right = 128;
-// 		box.top = 0,  box.bottom = 128;
-// 		box.front = 0, box.back = 1;
-// 		m_pD3DRender->GetContext()->CopySubresourceRegion(
-// 			pInputTexture, 0,
-// 			m_renderWidth/20, m_renderHeight/10, 0,
-// 			qrcodeTex_ptr[qrcode_cnt%1000], 0, &box
-// 		);
-
-// 		ID3D11Texture2D *bufferTexture;
-// 		ScratchImage img;
-// 		HRESULT hr = CaptureTexture(m_pD3DRender->GetDevice(), m_pD3DRender->GetContext(), pInputTexture, img);
-// 		if (FAILED(hr)) {
-// 			Info("copy texture fail");	
-// 		}
-// 		else {
-// 			hr = CreateTexture(m_pD3DRender->GetDevice(), img.GetImages(), img.GetImageCount(), img.GetMetadata(), (ID3D11Resource**)(&bufferTexture));
-// 			if (FAILED(hr)) {
-// 				Info("create buffer texture fail");	
-// 			}
-// 			else {
-// 				lock.lock();
-// 				(*frames_vec_ptr).push_back(bufferTexture); // save frames for capture
-// 				(*timeStamp_ptr).push_back(qrcode_cnt); // save qrcode index
-// 				qrcode_cnt += 1;
-// 				lock.unlock();
-// 			}
-// 		}
-// 	}
-// 	// [kyl] end
 
 // 	NV_ENC_PIC_PARAMS picParams = {};
 // 	if (insertIDR) {
@@ -364,9 +340,6 @@ void VideoEncoderNVENC::Transmit(ID3D11Texture2D *pTexture, uint64_t presentatio
 // 		}
 // 		if (fpOut) {
 // 			fpOut.write(reinterpret_cast<char*>(packet.data()), packet.size());
-// 		}
-// 		if (m_Listener) {
-// 			m_Listener->SendVideo(packet.data(), (int)packet.size(), targetTimestampNs);
 // 		}
 // 	}
 

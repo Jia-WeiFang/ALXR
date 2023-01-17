@@ -323,6 +323,11 @@ void VideoEncoderVCE::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationT
 	m_converter->Submit(surface);
 }
 
+// void VideoEncoderVCE::saveH264(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR)
+// {
+
+// }
+
 void VideoEncoderVCE::Receive(amf::AMFData *data)
 {
 	amf_pts current_time = amf_high_precision_clock();

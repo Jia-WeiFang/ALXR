@@ -244,6 +244,11 @@ void VideoEncoderSW::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTi
 	m_d3dRender->GetContext()->Unmap(stagingTex.Get(), 0);
 }
 
+// void VideoEncoderSW::saveH264(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t targetTimestampNs, bool insertIDR)
+// {
+
+// }
+
 HRESULT VideoEncoderSW::SetupStagingTexture(ID3D11Texture2D *pTexture) {
 	D3D11_TEXTURE2D_DESC desc;
 	pTexture->GetDesc(&desc);
